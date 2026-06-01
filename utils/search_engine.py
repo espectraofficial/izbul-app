@@ -1,5 +1,8 @@
 from scrapers.kariyer import search_kariyer
-from scrapers.jooble import search_jooble
+from scrapers.jooble import (
+    get_jooble_api_key,
+    search_jooble
+)
 import unicodedata
 
 
@@ -37,8 +40,27 @@ def deduplicate_jobs(jobs):
         try:
 
             key = (
-                job.title.strip().lower(),
-                job.company.strip().lower()
+                normalize_text(
+                    getattr(
+                        job,
+                        "title",
+                        ""
+                    )
+                ),
+                normalize_text(
+                    getattr(
+                        job,
+                        "company",
+                        ""
+                    )
+                ),
+                normalize_text(
+                    getattr(
+                        job,
+                        "location",
+                        ""
+                    )
+                )
             )
 
             if key in seen:
@@ -124,9 +146,45 @@ def get_search_location(selected_city=None):
     return "Türkiye"
 
 
-def smart_search(keyword, selected_city=None):
+def get_http_status(error):
+
+    response = getattr(
+        error,
+        "response",
+        None
+    )
+
+    if response is None:
+
+        return None
+
+    return getattr(
+        response,
+        "status_code",
+        None
+    )
+
+
+def smart_search(
+    keyword,
+    selected_city=None,
+    sources=None,
+    status_callback=None
+):
 
     all_jobs = []
+
+    selected_sources = set(
+        ["kariyer", "jooble"]
+        if sources is None
+        else sources
+    )
+
+    def emit_status(message):
+
+        if status_callback:
+
+            status_callback(message)
 
     keywords = expand_keywords(keyword)
 
@@ -138,57 +196,94 @@ def smart_search(keyword, selected_city=None):
         selected_city
     )
 
+    if not selected_sources:
+
+        emit_status("En az bir kaynak seçin.")
+
+        return []
+
     # 🔥 KARIYER.NET
-    for kw in keywords:
+    if "kariyer" in selected_sources:
 
-        for loc in locations:
+        for kw in keywords:
 
-            try:
+            for loc in locations:
 
-                kariyer_jobs = search_kariyer(
-                    kw,
-                    city=loc
-                )
+                try:
 
-                print(
-                    f"Kariyer bulundu: {len(kariyer_jobs)}"
-                )
+                    emit_status("Kariyer.net aranıyor...")
 
-                all_jobs.extend(
-                    kariyer_jobs
-                )
+                    kariyer_jobs = search_kariyer(
+                        kw,
+                        city=loc
+                    )
 
-            except Exception as e:
+                    print(
+                        f"Kariyer bulundu: {len(kariyer_jobs)}"
+                    )
 
-                print(
-                    "Kariyer hata:",
-                    e
-                )
+                    all_jobs.extend(
+                        kariyer_jobs
+                    )
+
+                except Exception as e:
+
+                    emit_status("Kariyer.net geçici olarak yanıt vermedi.")
+
+                    print(
+                        "Kariyer hata:",
+                        e
+                    )
 
     # JOOBLE
-    for kw in keywords:
+    if "jooble" in selected_sources:
 
-        try:
+        if not get_jooble_api_key():
 
-            jooble_jobs = search_jooble(
-                kw,
-                location=jooble_location
-            )
+            emit_status("Jooble API anahtarı yok; Jooble atlandı.")
 
-            print(
-                f"Jooble bulundu: {len(jooble_jobs)}"
-            )
+        else:
 
-            all_jobs.extend(
-                jooble_jobs
-            )
+            for kw in keywords:
 
-        except Exception as e:
+                try:
 
-            print(
-                "Jooble hata:",
-                e
-            )
+                    emit_status("Jooble aranıyor...")
+
+                    jooble_jobs = search_jooble(
+                        kw,
+                        location=jooble_location,
+                        raise_errors=True
+                    )
+
+                    print(
+                        f"Jooble bulundu: {len(jooble_jobs)}"
+                    )
+
+                    all_jobs.extend(
+                        jooble_jobs
+                    )
+
+                except Exception as e:
+
+                    status_code = get_http_status(e)
+
+                    if status_code == 403:
+
+                        emit_status(
+                            "Jooble API anahtarı geçersiz veya henüz aktif değil."
+                        )
+
+                    else:
+
+                        emit_status(
+                            "Jooble geçici olarak yanıt vermedi."
+                        )
+
+                    print(
+                        "Jooble hata:",
+                        e
+                    )
 
     # 🔥 DUPLICATE REMOVE
     unique_jobs = deduplicate_jobs(
@@ -197,6 +292,10 @@ def smart_search(keyword, selected_city=None):
 
     print(
         f"Toplam unique ilan: {len(unique_jobs)}"
+    )
+
+    emit_status(
+        f"{len(unique_jobs)} ilan bulundu."
     )
 
     return unique_jobs

@@ -49,3 +49,17 @@ The project is intended to be packaged separately on macOS and Windows.
 
 - macOS builds should be created on macOS.
 - Windows builds should be created on Windows.
+
+macOS:
+
+```bash
+bash scripts/build_macos.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\build_windows.ps1
+```
+
+Build outputs are created under `dist/`.

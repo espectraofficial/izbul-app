@@ -1,6 +1,7 @@
 import html
 import os
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -13,6 +14,38 @@ from utils.job_parser import (
 
 
 DEFAULT_API_HOST = "tr.jooble.org"
+APP_NAME = "Job Finder"
+
+
+def get_app_data_dir():
+
+    if os.sys.platform == "darwin":
+
+        return (
+            Path.home()
+            / "Library"
+            / "Application Support"
+            / APP_NAME
+        )
+
+    if os.sys.platform.startswith("win"):
+
+        appdata = os.getenv("APPDATA")
+
+        if appdata:
+
+            return Path(appdata) / APP_NAME
+
+    return (
+        Path.home()
+        / ".config"
+        / APP_NAME
+    )
+
+
+def get_user_api_key_file():
+
+    return get_app_data_dir() / "jooble_api_key.txt"
 
 
 def get_jooble_api_key():
@@ -24,6 +57,7 @@ def get_jooble_api_key():
         return api_key
 
     key_files = [
+        get_user_api_key_file(),
         Path.cwd() / "jooble_api_key.txt",
         Path(__file__).resolve().parent.parent / "jooble_api_key.txt"
     ]
@@ -49,6 +83,21 @@ def get_jooble_api_key():
             print("Jooble API anahtarı okunamadı:", e)
 
     return ""
+
+
+def save_jooble_api_key(api_key):
+
+    key_file = get_user_api_key_file()
+
+    key_file.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    key_file.write_text(
+        str(api_key or "").strip(),
+        encoding="utf-8"
+    )
 
 
 def get_jooble_api_url(api_key):
@@ -82,11 +131,73 @@ def clean_snippet(value):
     )
 
 
+def parse_jooble_date(value):
+
+    raw_value = str(value or "").strip()
+
+    if not raw_value:
+
+        return "", ""
+
+    normalized = raw_value.replace(
+        "Z",
+        "+00:00"
+    )
+
+    try:
+
+        date_value = datetime.fromisoformat(
+            normalized
+        )
+
+        if date_value.tzinfo is None:
+
+            date_value = date_value.replace(
+                tzinfo=timezone.utc
+            )
+
+        now = datetime.now(
+            date_value.tzinfo
+        )
+
+        days_ago = (
+            now.date() - date_value.date()
+        ).days
+
+        if days_ago == 0:
+
+            date_text = "Bugün"
+
+        elif days_ago == 1:
+
+            date_text = "Dün"
+
+        elif days_ago > 1:
+
+            date_text = f"{days_ago} gün önce"
+
+        else:
+
+            date_text = date_value.strftime(
+                "%d.%m.%Y"
+            )
+
+        return (
+            date_value.date().isoformat(),
+            date_text
+        )
+
+    except ValueError:
+
+        return raw_value, raw_value
+
+
 def search_jooble(
     keyword,
     location="Türkiye",
     page=1,
-    results_on_page=20
+    results_on_page=20,
+    raise_errors=False
 ):
 
     api_key = get_jooble_api_key()
@@ -123,6 +234,10 @@ def search_jooble(
 
     except Exception as e:
 
+        if raise_errors:
+
+            raise
+
         print("Jooble request hata:", e)
 
         return []
@@ -154,6 +269,10 @@ def search_jooble(
 
             link = item.get("link", "")
 
+            posted_date, job_date_text = parse_jooble_date(
+                item.get("updated", "")
+            )
+
             jobs.append(
                 Job(
                     site="Jooble",
@@ -165,8 +284,8 @@ def search_jooble(
                     remote=remote,
                     experience=experience,
                     location=item.get("location", ""),
-                    posted_date=item.get("updated", ""),
-                    job_date_text=item.get("updated", "")
+                    posted_date=posted_date,
+                    job_date_text=job_date_text
                 )
             )
 

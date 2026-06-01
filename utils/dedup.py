@@ -1,3 +1,22 @@
+import unicodedata
+
+
+def normalize_text(value):
+
+    text = str(value or "").strip().lower()
+
+    normalized = unicodedata.normalize(
+        "NFKD",
+        text
+    )
+
+    return "".join(
+        char
+        for char in normalized
+        if not unicodedata.combining(char)
+    )
+
+
 def deduplicate_jobs(jobs):
 
     unique = []
@@ -8,11 +27,28 @@ def deduplicate_jobs(jobs):
 
         try:
 
-            # 🔥 SADECE TITLE + COMPANY
-            # 🔥 LINK KULLANMA
             key = (
-                job.title.strip().lower(),
-                job.company.strip().lower()
+                normalize_text(
+                    getattr(
+                        job,
+                        "title",
+                        ""
+                    )
+                ),
+                normalize_text(
+                    getattr(
+                        job,
+                        "company",
+                        ""
+                    )
+                ),
+                normalize_text(
+                    getattr(
+                        job,
+                        "location",
+                        ""
+                    )
+                )
             )
 
             if key in seen:

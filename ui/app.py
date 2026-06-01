@@ -8,6 +8,10 @@ import sys
 from pathlib import Path
 from urllib.parse import quote_plus
 
+from scrapers.jooble import (
+    get_jooble_api_key,
+    save_jooble_api_key
+)
 from utils.search_engine import smart_search, normalize_text
 
 
@@ -16,6 +20,12 @@ ctk.set_default_color_theme("blue")
 
 
 APP_NAME = "Job Finder"
+
+DEFAULT_SETTINGS = {
+    "default_city": "",
+    "jobs_per_page": 10,
+    "appearance_mode": "dark"
+}
 
 
 def get_app_data_dir():
@@ -54,6 +64,69 @@ def get_favorites_file():
     )
 
     return app_data_dir / "favorites.json"
+
+
+def get_settings_file():
+
+    app_data_dir = get_app_data_dir()
+
+    app_data_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    return app_data_dir / "settings.json"
+
+
+def load_settings():
+
+    settings_file = get_settings_file()
+
+    if not settings_file.exists():
+
+        return DEFAULT_SETTINGS.copy()
+
+    try:
+
+        with open(
+            settings_file,
+            "r",
+            encoding="utf-8"
+        ) as file:
+
+            data = json.load(file)
+
+        settings = DEFAULT_SETTINGS.copy()
+
+        if isinstance(data, dict):
+
+            settings.update(data)
+
+        return settings
+
+    except Exception as e:
+
+        print("Ayarlar yüklenemedi:", e)
+
+        return DEFAULT_SETTINGS.copy()
+
+
+def save_settings(settings):
+
+    settings_file = get_settings_file()
+
+    with open(
+        settings_file,
+        "w",
+        encoding="utf-8"
+    ) as file:
+
+        json.dump(
+            settings,
+            file,
+            ensure_ascii=False,
+            indent=4
+        )
 
 
 def migrate_legacy_favorites(favorites_file):
@@ -150,13 +223,29 @@ class JobApp(ctk.CTk):
         self.filtered_jobs = []
         self.favorite_jobs = []
         self.toast_label = None
+        self.settings = load_settings()
+
+        ctk.set_appearance_mode(
+            self.settings.get(
+                "appearance_mode",
+                "dark"
+            )
+        )
+
         self.favorites_file = get_favorites_file()
+        self.last_status_message = "Hazır"
+        self.view_mode = "home"
 
         migrate_legacy_favorites(
             self.favorites_file
         )
 
-        self.jobs_per_page = 10
+        self.jobs_per_page = int(
+            self.settings.get(
+                "jobs_per_page",
+                10
+            )
+        )
 
         # =========================
         # MAIN CONTAINER
@@ -327,6 +416,28 @@ class JobApp(ctk.CTk):
             padx=10
         )
 
+        # SETTINGS BUTTON
+
+        self.settings_button = ctk.CTkButton(
+
+            self.top_frame,
+
+            text="Ayarlar",
+
+            width=110,
+
+            height=44,
+
+            corner_radius=12,
+
+            command=self.show_settings
+        )
+
+        self.settings_button.pack(
+            side="left",
+            padx=10
+        )
+
         # =========================
         # CONTENT CONTAINER
         # =========================
@@ -422,6 +533,71 @@ class JobApp(ctk.CTk):
             padx=20,
             pady=(0, 20)
         )
+
+        default_city = self.settings.get(
+            "default_city",
+            ""
+        )
+
+        if default_city:
+
+            self.city_entry.insert(
+                0,
+                default_city
+            )
+
+        # =========================
+        # SOURCE FILTER
+        # =========================
+
+        source_label = ctk.CTkLabel(
+
+            self.sidebar,
+
+            text="Kaynaklar",
+
+            font=(
+                "Arial",
+                15,
+                "bold"
+            )
+        )
+
+        source_label.pack(
+            anchor="w",
+            padx=20,
+            pady=(10, 10)
+        )
+
+        self.source_vars = {}
+
+        source_values = [
+            ("kariyer", "Kariyer.net"),
+            ("jooble", "Jooble")
+        ]
+
+        for source_key, source_name in source_values:
+
+            var = ctk.BooleanVar(
+                value=True
+            )
+
+            checkbox = ctk.CTkCheckBox(
+
+                self.sidebar,
+
+                text=source_name,
+
+                variable=var
+            )
+
+            checkbox.pack(
+                anchor="w",
+                padx=25,
+                pady=4
+            )
+
+            self.source_vars[source_key] = var
 
         # =========================
         # EXPERIENCE FILTER
@@ -629,6 +805,26 @@ class JobApp(ctk.CTk):
             expand=True
         )
 
+        self.status_label = ctk.CTkLabel(
+
+            self.right_content,
+
+            text=self.last_status_message,
+
+            font=(
+                "Arial",
+                14
+            ),
+
+            anchor="w"
+        )
+
+        self.status_label.pack(
+            fill="x",
+            padx=10,
+            pady=(0, 8)
+        )
+
         # =========================
         # RESULTS FRAME
         # =========================
@@ -738,6 +934,8 @@ class JobApp(ctk.CTk):
     # =========================
 
     def show_welcome_screen(self):
+
+        self.view_mode = "home"
 
         self.filtered_jobs = []
         self.current_page = 1
@@ -981,6 +1179,244 @@ class JobApp(ctk.CTk):
 
         webbrowser.open(url)
 
+    def show_settings(self):
+
+        settings_window = ctk.CTkToplevel(self)
+
+        settings_window.title("Ayarlar")
+
+        settings_window.geometry("520x460")
+
+        settings_window.resizable(False, False)
+
+        settings_window.transient(self)
+
+        settings_window.focus()
+
+        container = ctk.CTkFrame(
+            settings_window,
+            corner_radius=18
+        )
+
+        container.pack(
+            fill="both",
+            expand=True,
+            padx=18,
+            pady=18
+        )
+
+        title = ctk.CTkLabel(
+
+            container,
+
+            text="Ayarlar",
+
+            font=(
+                "Arial",
+                28,
+                "bold"
+            )
+        )
+
+        title.pack(
+            anchor="w",
+            padx=22,
+            pady=(22, 20)
+        )
+
+        api_label = ctk.CTkLabel(
+            container,
+            text="Jooble API Key",
+            font=("Arial", 14, "bold")
+        )
+
+        api_label.pack(
+            anchor="w",
+            padx=22,
+            pady=(0, 6)
+        )
+
+        api_entry = ctk.CTkEntry(
+            container,
+            width=460,
+            height=40,
+            show="*"
+        )
+
+        api_entry.pack(
+            padx=22,
+            pady=(0, 16)
+        )
+
+        current_key = get_jooble_api_key()
+
+        if current_key:
+
+            api_entry.insert(
+                0,
+                current_key
+            )
+
+        city_label = ctk.CTkLabel(
+            container,
+            text="Varsayılan şehir",
+            font=("Arial", 14, "bold")
+        )
+
+        city_label.pack(
+            anchor="w",
+            padx=22,
+            pady=(0, 6)
+        )
+
+        city_entry = ctk.CTkEntry(
+            container,
+            width=460,
+            height=40
+        )
+
+        city_entry.pack(
+            padx=22,
+            pady=(0, 16)
+        )
+
+        city_entry.insert(
+            0,
+            self.settings.get(
+                "default_city",
+                ""
+            )
+        )
+
+        page_label = ctk.CTkLabel(
+            container,
+            text="Sayfa başına ilan",
+            font=("Arial", 14, "bold")
+        )
+
+        page_label.pack(
+            anchor="w",
+            padx=22,
+            pady=(0, 6)
+        )
+
+        page_entry = ctk.CTkEntry(
+            container,
+            width=460,
+            height=40
+        )
+
+        page_entry.pack(
+            padx=22,
+            pady=(0, 16)
+        )
+
+        page_entry.insert(
+            0,
+            str(self.jobs_per_page)
+        )
+
+        theme_label = ctk.CTkLabel(
+            container,
+            text="Tema",
+            font=("Arial", 14, "bold")
+        )
+
+        theme_label.pack(
+            anchor="w",
+            padx=22,
+            pady=(0, 6)
+        )
+
+        theme_var = ctk.StringVar(
+            value=self.settings.get(
+                "appearance_mode",
+                "dark"
+            )
+        )
+
+        theme_menu = ctk.CTkOptionMenu(
+            container,
+            values=[
+                "dark",
+                "light",
+                "system"
+            ],
+            variable=theme_var,
+            width=460,
+            height=40
+        )
+
+        theme_menu.pack(
+            padx=22,
+            pady=(0, 22)
+        )
+
+        def save_settings_from_window():
+
+            try:
+
+                jobs_per_page = int(
+                    page_entry.get().strip()
+                )
+
+                if jobs_per_page < 1:
+
+                    raise ValueError
+
+            except ValueError:
+
+                self.show_toast(
+                    "Sayfa başına ilan pozitif sayı olmalı.",
+                    "#C0392B"
+                )
+
+                return
+
+            api_key = api_entry.get().strip()
+
+            save_jooble_api_key(api_key)
+
+            self.settings = {
+                "default_city": city_entry.get().strip(),
+                "jobs_per_page": jobs_per_page,
+                "appearance_mode": theme_var.get()
+            }
+
+            save_settings(
+                self.settings
+            )
+
+            self.jobs_per_page = jobs_per_page
+
+            ctk.set_appearance_mode(
+                theme_var.get()
+            )
+
+            self.show_toast(
+                "Ayarlar kaydedildi.",
+                "#27AE60"
+            )
+
+            settings_window.destroy()
+
+        save_button = ctk.CTkButton(
+
+            container,
+
+            text="Kaydet",
+
+            height=42,
+
+            command=save_settings_from_window
+        )
+
+        save_button.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 18)
+        )
+
     # =========================
     # TOAST MESSAGE
     # =========================
@@ -1068,25 +1504,73 @@ class JobApp(ctk.CTk):
             .strip()
         )
 
+        selected_sources = self.get_selected_sources()
+
+        if not selected_sources:
+
+            self.show_toast(
+                "En az bir kaynak seçin.",
+                "#C0392B"
+            )
+
+            return
+
         self.search_button.configure(
             state="disabled",
             text="Aranıyor..."
+        )
+
+        self.view_mode = "results"
+
+        self.set_status_message(
+            "Arama başlatıldı..."
         )
 
         threading.Thread(
 
             target=self.search_jobs,
 
-            args=(keyword, selected_city),
+            args=(keyword, selected_city, selected_sources),
 
             daemon=True
         ).start()
 
-    def search_jobs(self, keyword, selected_city):
+    def get_selected_sources(self):
+
+        return [
+
+            source
+
+            for source, var in self.source_vars.items()
+
+            if var.get()
+        ]
+
+    def set_status_message(self, message):
+
+        self.last_status_message = message
+
+        if hasattr(self, "status_label"):
+
+            self.status_label.configure(
+                text=message
+            )
+
+    def thread_safe_status(self, message):
+
+        self.after(
+            0,
+            lambda:
+            self.set_status_message(message)
+        )
+
+    def search_jobs(self, keyword, selected_city, selected_sources):
 
         jobs = smart_search(
             keyword,
-            selected_city=selected_city
+            selected_city=selected_city,
+            sources=selected_sources,
+            status_callback=self.thread_safe_status
         )
 
         self.all_jobs = jobs
@@ -1230,6 +1714,16 @@ class JobApp(ctk.CTk):
     
     def show_favorites(self):
 
+        self.previous_jobs = self.filtered_jobs
+
+        self.previous_page = self.current_page
+
+        self.view_mode = "favorites"
+
+        self.apply_filters()
+
+    def get_favorite_job_objects(self):
+
         class FavoriteJob:
 
             def __init__(self, data):
@@ -1237,6 +1731,7 @@ class JobApp(ctk.CTk):
                 self.title = data.get("title", "")
                 self.company = data.get("company", "")
                 self.site = data.get("site", "")
+                self.description = data.get("description", "")
                 self.location = data.get("location", "")
                 self.experience = data.get("experience", "")
                 self.remote = data.get("remote", "")
@@ -1245,20 +1740,12 @@ class JobApp(ctk.CTk):
                 self.posted_date = data.get("posted_date", "")
                 self.job_date_text = data.get("job_date_text", "")
 
-        self.previous_jobs = self.filtered_jobs
-
-        self.previous_page = self.current_page
-
-        self.filtered_jobs = [
+        return [
 
             FavoriteJob(job)
 
             for job in self.favorite_jobs
         ]
-
-        self.current_page = 1
-
-        self.display_jobs()
 
     def safe_button_text(self, button, text):
 
@@ -1267,10 +1754,240 @@ class JobApp(ctk.CTk):
                 button.configure(text=text)
         except:
             pass
+
+    def show_job_details(self, job):
+
+        detail_window = ctk.CTkToplevel(self)
+
+        detail_window.title("İlan Detayı")
+
+        detail_window.geometry("720x620")
+
+        detail_window.minsize(620, 520)
+
+        detail_window.transient(self)
+
+        detail_window.focus()
+
+        container = ctk.CTkFrame(
+            detail_window,
+            corner_radius=18
+        )
+
+        container.pack(
+            fill="both",
+            expand=True,
+            padx=18,
+            pady=18
+        )
+
+        title_label = ctk.CTkLabel(
+
+            container,
+
+            text=getattr(job, "title", ""),
+
+            font=(
+                "Arial",
+                26,
+                "bold"
+            ),
+
+            anchor="w",
+
+            justify="left",
+
+            wraplength=640
+        )
+
+        title_label.pack(
+            fill="x",
+            padx=22,
+            pady=(22, 8)
+        )
+
+        company_label = ctk.CTkLabel(
+
+            container,
+
+            text=getattr(job, "company", ""),
+
+            font=(
+                "Arial",
+                17
+            ),
+
+            anchor="w",
+
+            justify="left"
+        )
+
+        company_label.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 14)
+        )
+
+        meta_text = (
+            f"Kaynak: {getattr(job, 'site', '')}\n"
+            f"Konum: {getattr(job, 'location', '')}\n"
+            f"Tarih: {getattr(job, 'job_date_text', '')}\n"
+            f"Deneyim: {getattr(job, 'experience', '')}\n"
+            f"Çalışma: {getattr(job, 'remote', '')}"
+        )
+
+        meta_label = ctk.CTkLabel(
+
+            container,
+
+            text=meta_text,
+
+            font=(
+                "Arial",
+                14
+            ),
+
+            anchor="w",
+
+            justify="left"
+        )
+
+        meta_label.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 16)
+        )
+
+        description_box = ctk.CTkTextbox(
+            container,
+            height=260,
+            wrap="word"
+        )
+
+        description_box.pack(
+            fill="both",
+            expand=True,
+            padx=22,
+            pady=(0, 16)
+        )
+
+        description = getattr(
+            job,
+            "description",
+            ""
+        ).strip()
+
+        if not description:
+
+            description = "Bu kaynak detay açıklaması sağlamıyor."
+
+        description_box.insert(
+            "1.0",
+            description
+        )
+
+        description_box.configure(
+            state="disabled"
+        )
+
+        button_frame = ctk.CTkFrame(
+            container,
+            fg_color="transparent"
+        )
+
+        button_frame.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 20)
+        )
+
+        favorite_button = ctk.CTkButton(
+
+            button_frame,
+
+            text="Favori Durumunu Değiştir",
+
+            width=190,
+
+            height=40,
+
+            command=lambda:
+            self.toggle_favorite(job)
+        )
+
+        favorite_button.pack(
+            side="left",
+            padx=(0, 10)
+        )
+
+        open_button = ctk.CTkButton(
+
+            button_frame,
+
+            text="İlana Git",
+
+            width=130,
+
+            height=40,
+
+            command=lambda:
+            webbrowser.open(
+                getattr(
+                    job,
+                    "url",
+                    ""
+                )
+            )
+        )
+
+        open_button.pack(
+            side="right"
+        )
     
     def apply_filters(self):
 
-        filtered = self.all_jobs
+        if self.view_mode == "favorites":
+
+            filtered = self.get_favorite_job_objects()
+
+            keyword = normalize_text(
+                self.keyword_entry.get()
+            )
+
+            if keyword:
+
+                filtered = [
+
+                    job for job in filtered
+
+                    if (
+                        keyword in normalize_text(
+                            getattr(
+                                job,
+                                "title",
+                                ""
+                            )
+                        ) or
+                        keyword in normalize_text(
+                            getattr(
+                                job,
+                                "company",
+                                ""
+                            )
+                        ) or
+                        keyword in normalize_text(
+                            getattr(
+                                job,
+                                "description",
+                                ""
+                            )
+                        )
+                    )
+                ]
+
+        else:
+
+            filtered = self.all_jobs
 
         city = normalize_text(
             self.city_entry.get()
@@ -1423,6 +2140,12 @@ class JobApp(ctk.CTk):
 
         self.current_page = 1
 
+        if self.view_mode == "favorites":
+
+            self.set_status_message(
+                f"{len(filtered)} favori ilan gösteriliyor."
+            )
+
         self.display_jobs()
 
     def update_ui(self):
@@ -1461,11 +2184,17 @@ class JobApp(ctk.CTk):
 
         if not jobs:
 
+            empty_text = (
+                "Favori iş ilanı bulunamadı."
+                if self.view_mode == "favorites"
+                else "İlan bulunamadı."
+            )
+
             empty_label = ctk.CTkLabel(
 
                 self.results_frame,
 
-                text="Favori iş ilanı bulunamadı.",
+                text=empty_text,
 
                 font=(
                     "Arial",
@@ -1533,6 +2262,49 @@ class JobApp(ctk.CTk):
                 padx=20
             )
 
+            source_name = getattr(
+                job,
+                "site",
+                "Bilinmiyor"
+            )
+
+            source_colors = {
+                "Kariyer": "#1F6AA5",
+                "Jooble": "#2E8B57"
+            }
+
+            source_badge = ctk.CTkLabel(
+
+                card,
+
+                text=source_name,
+
+                fg_color=source_colors.get(
+                    source_name,
+                    "#555555"
+                ),
+
+                text_color="white",
+
+                corner_radius=10,
+
+                font=(
+                    "Arial",
+                    12,
+                    "bold"
+                ),
+
+                padx=10,
+
+                pady=4
+            )
+
+            source_badge.pack(
+                anchor="w",
+                padx=20,
+                pady=(8, 0)
+            )
+
             location = ctk.CTkLabel(
 
                 card,
@@ -1583,7 +2355,6 @@ class JobApp(ctk.CTk):
                 card,
 
                 text=(
-                    f"Kaynak: {getattr(job, 'site', '')}   |   "
                     f"Deneyim: {job.experience}   |   "
                     f"Çalışma: {job.remote}"
                 ),
@@ -1630,6 +2401,27 @@ class JobApp(ctk.CTk):
             )
 
             open_button.pack(
+                side="right",
+                padx=5
+            )
+
+            detail_button = ctk.CTkButton(
+
+                button_frame,
+
+                text="Detay",
+
+                width=100,
+
+                height=38,
+
+                corner_radius=12,
+
+                command=lambda j=job:
+                self.show_job_details(j)
+            )
+
+            detail_button.pack(
                 side="right",
                 padx=5
             )
