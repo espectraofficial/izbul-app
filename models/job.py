@@ -11,7 +11,8 @@ class Job:
         job_date_text="",
         remote="Belirtilmemiş",
         experience="Belirtilmemiş",
-        location="Belirtilmemiş"
+        location="Belirtilmemiş",
+        logo_url=""
     ):
         self.site = site
         self.company = company
@@ -24,3 +25,4 @@ class Job:
         self.remote = remote
         self.experience = experience
         self.location = location
+        self.logo_url = logo_url

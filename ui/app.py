@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import io
 import threading
 import math
 import webbrowser
@@ -7,6 +8,9 @@ import os
 import sys
 from pathlib import Path
 from urllib.parse import quote_plus
+
+import requests
+from PIL import Image
 
 from scrapers.jooble import (
     get_jooble_api_key,
@@ -26,6 +30,33 @@ DEFAULT_SETTINGS = {
     "jobs_per_page": 10,
     "appearance_mode": "dark"
 }
+
+THEME_LABELS = {
+    "Koyu": "dark",
+    "Açık": "light",
+    "Sistem": "system"
+}
+
+THEME_VALUES = {
+    value: label
+    for label, value in THEME_LABELS.items()
+}
+
+
+def get_theme_value(label):
+
+    return THEME_LABELS.get(
+        label,
+        "dark"
+    )
+
+
+def get_theme_label(value):
+
+    return THEME_VALUES.get(
+        value,
+        "Koyu"
+    )
 
 
 def get_app_data_dir():
@@ -224,6 +255,7 @@ class JobApp(ctk.CTk):
         self.favorite_jobs = []
         self.toast_label = None
         self.settings = load_settings()
+        self.logo_images = {}
 
         ctk.set_appearance_mode(
             self.settings.get(
@@ -786,7 +818,30 @@ class JobApp(ctk.CTk):
 
         self.apply_filter_button.pack(
             padx=20,
-            pady=(30, 20),
+            pady=(30, 10),
+            fill="x"
+        )
+
+        self.clear_filter_button = ctk.CTkButton(
+
+            self.sidebar,
+
+            text="Filtreleri Temizle",
+
+            height=40,
+
+            corner_radius=12,
+
+            fg_color="#444444",
+
+            hover_color="#555555",
+
+            command=self.clear_filters
+        )
+
+        self.clear_filter_button.pack(
+            padx=20,
+            pady=(0, 20),
             fill="x"
         )
 
@@ -1185,13 +1240,13 @@ class JobApp(ctk.CTk):
 
         settings_window.title("Ayarlar")
 
-        settings_window.geometry("520x460")
+        settings_window.geometry("560x640")
 
         settings_window.resizable(False, False)
 
         settings_window.transient(self)
 
-        settings_window.focus()
+        settings_window.focus_force()
 
         container = ctk.CTkFrame(
             settings_window,
@@ -1329,18 +1384,20 @@ class JobApp(ctk.CTk):
         )
 
         theme_var = ctk.StringVar(
-            value=self.settings.get(
-                "appearance_mode",
-                "dark"
+            value=get_theme_label(
+                self.settings.get(
+                    "appearance_mode",
+                    "dark"
+                )
             )
         )
 
         theme_menu = ctk.CTkOptionMenu(
             container,
             values=[
-                "dark",
-                "light",
-                "system"
+                "Koyu",
+                "Açık",
+                "Sistem"
             ],
             variable=theme_var,
             width=460,
@@ -1350,6 +1407,23 @@ class JobApp(ctk.CTk):
         theme_menu.pack(
             padx=22,
             pady=(0, 22)
+        )
+
+        settings_status = ctk.CTkLabel(
+
+            container,
+
+            text="",
+
+            font=("Arial", 13, "bold"),
+
+            text_color="#27AE60"
+        )
+
+        settings_status.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 12)
         )
 
         def save_settings_from_window():
@@ -1364,11 +1438,15 @@ class JobApp(ctk.CTk):
 
                     raise ValueError
 
+                if jobs_per_page > 100:
+
+                    jobs_per_page = 100
+
             except ValueError:
 
-                self.show_toast(
-                    "Sayfa başına ilan pozitif sayı olmalı.",
-                    "#C0392B"
+                settings_status.configure(
+                    text_color="#C0392B",
+                    text="Sayfa başına ilan pozitif sayı olmalı."
                 )
 
                 return
@@ -1377,10 +1455,16 @@ class JobApp(ctk.CTk):
 
             save_jooble_api_key(api_key)
 
+            theme_value = get_theme_value(
+                theme_var.get()
+            )
+
+            default_city = city_entry.get().strip()
+
             self.settings = {
-                "default_city": city_entry.get().strip(),
+                "default_city": default_city,
                 "jobs_per_page": jobs_per_page,
-                "appearance_mode": theme_var.get()
+                "appearance_mode": theme_value
             }
 
             save_settings(
@@ -1390,15 +1474,34 @@ class JobApp(ctk.CTk):
             self.jobs_per_page = jobs_per_page
 
             ctk.set_appearance_mode(
-                theme_var.get()
+                theme_value
             )
 
-            self.show_toast(
-                "Ayarlar kaydedildi.",
-                "#27AE60"
+            self.city_entry.delete(
+                0,
+                "end"
             )
 
-            settings_window.destroy()
+            if default_city:
+
+                self.city_entry.insert(
+                    0,
+                    default_city
+                )
+
+            settings_status.configure(
+                text_color="#27AE60",
+                text="Ayarlar kaydedildi."
+            )
+
+            self.set_status_message(
+                "Ayarlar kaydedildi."
+            )
+
+            settings_window.after(
+                900,
+                settings_window.destroy
+            )
 
         save_button = ctk.CTkButton(
 
@@ -1672,7 +1775,8 @@ class JobApp(ctk.CTk):
             "experience": str(getattr(job, "experience", "")),
             "location": str(getattr(job, "location", "")),
             "posted_date": str(getattr(job, "posted_date", "")),
-            "job_date_text": str(getattr(job, "job_date_text", ""))
+            "job_date_text": str(getattr(job, "job_date_text", "")),
+            "logo_url": str(getattr(job, "logo_url", ""))
         }
 
         existing = None
@@ -1739,6 +1843,7 @@ class JobApp(ctk.CTk):
                 self.apply_url = data.get("apply_url", "")
                 self.posted_date = data.get("posted_date", "")
                 self.job_date_text = data.get("job_date_text", "")
+                self.logo_url = data.get("logo_url", "")
 
         return [
 
@@ -1754,6 +1859,126 @@ class JobApp(ctk.CTk):
                 button.configure(text=text)
         except:
             pass
+
+    def clear_filters(self):
+
+        self.city_entry.delete(
+            0,
+            "end"
+        )
+
+        default_city = self.settings.get(
+            "default_city",
+            ""
+        )
+
+        if default_city:
+
+            self.city_entry.insert(
+                0,
+                default_city
+            )
+
+        for var in self.exp_vars.values():
+
+            var.set(False)
+
+        for var in self.remote_vars.values():
+
+            var.set(False)
+
+        for var in self.source_vars.values():
+
+            var.set(True)
+
+        self.sort_var.set(
+            "Varsayılan"
+        )
+
+        self.apply_filters()
+
+        self.set_status_message(
+            "Filtreler temizlendi."
+        )
+
+    def get_company_initials(self, company):
+
+        words = [
+            word
+            for word in str(company or "").split()
+            if word
+        ]
+
+        if not words:
+
+            return "?"
+
+        initials = "".join(
+            word[0].upper()
+            for word in words[:2]
+        )
+
+        return initials[:2]
+
+    def get_logo_image(self, job):
+
+        logo_url = getattr(
+            job,
+            "logo_url",
+            ""
+        )
+
+        if not logo_url:
+
+            return None
+
+        if logo_url in self.logo_images:
+
+            return self.logo_images[logo_url]
+
+        self.logo_images[logo_url] = None
+
+        threading.Thread(
+            target=self.download_logo_image,
+            args=(logo_url,),
+            daemon=True
+        ).start()
+
+        return None
+
+    def download_logo_image(self, logo_url):
+
+        try:
+
+            response = requests.get(
+                logo_url,
+                timeout=8
+            )
+
+            response.raise_for_status()
+
+            image = Image.open(
+                io.BytesIO(response.content)
+            ).convert("RGBA")
+
+            logo_image = ctk.CTkImage(
+                light_image=image,
+                dark_image=image,
+                size=(56, 56)
+            )
+
+            self.logo_images[logo_url] = logo_image
+
+            self.after(
+                0,
+                self.display_jobs
+            )
+
+        except Exception as e:
+
+            print("Logo yüklenemedi:", e)
+
+            self.logo_images[logo_url] = None
 
     def show_job_details(self, job):
 
@@ -2222,44 +2447,90 @@ class JobApp(ctk.CTk):
                 pady=10
             )
 
-            title = ctk.CTkLabel(
-
+            header_frame = ctk.CTkFrame(
                 card,
-
-                text=job.title,
-
-                font=(
-                    "Arial",
-                    22,
-                    "bold"
-                ),
-
-                anchor="w"
+                fg_color="transparent"
             )
 
-            title.pack(
-                anchor="w",
+            header_frame.pack(
+                fill="x",
                 padx=20,
                 pady=(18, 5)
             )
 
-            company = ctk.CTkLabel(
+            logo_frame = ctk.CTkFrame(
+                header_frame,
+                width=64,
+                height=64,
+                corner_radius=12
+            )
 
-                card,
+            logo_frame.pack(
+                side="left"
+            )
 
-                text=job.company,
+            logo_frame.pack_propagate(False)
 
-                font=(
-                    "Arial",
-                    15
-                ),
+            logo_image = self.get_logo_image(job)
 
+            if logo_image:
+
+                logo_label = ctk.CTkLabel(
+                    logo_frame,
+                    text="",
+                    image=logo_image
+                )
+
+            else:
+
+                logo_label = ctk.CTkLabel(
+                    logo_frame,
+                    text=self.get_company_initials(job.company),
+                    font=("Arial", 18, "bold")
+                )
+
+            logo_label.pack(
+                fill="both",
+                expand=True
+            )
+
+            title_frame = ctk.CTkFrame(
+                header_frame,
+                fg_color="transparent"
+            )
+
+            title_frame.pack(
+                side="left",
+                fill="x",
+                expand=True,
+                padx=(14, 0)
+            )
+
+            title = ctk.CTkLabel(
+                title_frame,
+                text=job.title,
+                font=("Arial", 22, "bold"),
+                anchor="w",
+                justify="left"
+            )
+
+            title.pack(
+                fill="x",
                 anchor="w"
             )
 
-            company.pack(
+            company = ctk.CTkLabel(
+                title_frame,
+                text=job.company,
+                font=("Arial", 15),
                 anchor="w",
-                padx=20
+                justify="left"
+            )
+
+            company.pack(
+                fill="x",
+                anchor="w",
+                pady=(5, 0)
             )
 
             source_name = getattr(

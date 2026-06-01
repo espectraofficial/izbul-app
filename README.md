@@ -45,7 +45,7 @@ python ui/app.py
 
 ## Packaging
 
-The project is intended to be packaged separately on macOS and Windows.
+The project is packaged separately on macOS and Windows. Use the generated files under `release/` for distribution.
 
 - macOS builds should be created on macOS.
 - Windows builds should be created on Windows.
@@ -63,3 +63,11 @@ Windows PowerShell:
 ```
 
 Build outputs are created under `dist/`.
+
+Distribution outputs:
+
+- macOS: `release/macos/Job-Finder-macOS.dmg`
+- macOS fallback: `release/macos/Job-Finder-macOS.zip`
+- Windows: `release/windows/Job-Finder-Windows-Setup.exe`
+
+GitHub Actions can build both installers from the **Build Installers** workflow. Run it manually from the Actions tab, then download the generated artifacts.

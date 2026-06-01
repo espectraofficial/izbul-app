@@ -285,7 +285,13 @@ def search_jooble(
                     experience=experience,
                     location=item.get("location", ""),
                     posted_date=posted_date,
-                    job_date_text=job_date_text
+                    job_date_text=job_date_text,
+                    logo_url=(
+                        item.get("logo") or
+                        item.get("logo_url") or
+                        item.get("companyLogo") or
+                        ""
+                    )
                 )
             )
 

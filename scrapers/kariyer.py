@@ -7,6 +7,26 @@ from utils.job_parser import (
 )
 
 
+def get_logo_url(item):
+
+    logo_url = (
+        item.get("squareLogoUrl") or
+        item.get("logoUrl") or
+        item.get("fullPathLogoUrl") or
+        ""
+    )
+
+    if "firma-logosuz" in logo_url:
+
+        return ""
+
+    if logo_url and not logo_url.startswith("http"):
+
+        return "https://www.kariyer.net" + logo_url
+
+    return logo_url
+
+
 def search_kariyer(keyword, city="34"):
 
     jobs = []
@@ -214,6 +234,10 @@ def search_kariyer(keyword, city="34"):
                         job_date_text=item.get(
                             "jobDateText",
                             ""
+                        ),
+
+                        logo_url=get_logo_url(
+                            item
                         )
                     )
                 )
