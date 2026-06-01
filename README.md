@@ -31,6 +31,12 @@ python ui/app.py
 
 Or create a local `jooble_api_key.txt` file in the project root and put only the API key inside it.
 
+The default Jooble endpoint is `tr.jooble.org`, which is used for Turkey-based API keys. If Jooble gives you a different regional endpoint, you can override it:
+
+```bash
+export JOOBLE_API_HOST=jooble.org
+```
+
 ## Run
 
 ```bash

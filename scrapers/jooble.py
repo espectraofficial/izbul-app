@@ -12,7 +12,7 @@ from utils.job_parser import (
 )
 
 
-API_URL = "https://jooble.org/api/{api_key}"
+DEFAULT_API_HOST = "tr.jooble.org"
 
 
 def get_jooble_api_key():
@@ -49,6 +49,22 @@ def get_jooble_api_key():
             print("Jooble API anahtarı okunamadı:", e)
 
     return ""
+
+
+def get_jooble_api_url(api_key):
+
+    api_host = os.getenv(
+        "JOOBLE_API_HOST",
+        DEFAULT_API_HOST
+    ).strip()
+
+    api_host = api_host.removeprefix(
+        "https://"
+    ).removeprefix(
+        "http://"
+    ).strip("/")
+
+    return f"https://{api_host}/api/{api_key}"
 
 
 def clean_snippet(value):
@@ -91,8 +107,13 @@ def search_jooble(
     try:
 
         response = requests.post(
-            API_URL.format(api_key=api_key),
+            get_jooble_api_url(api_key),
             json=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "JobFinderApp/1.0"
+            },
             timeout=10
         )
 
