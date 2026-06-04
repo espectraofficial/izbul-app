@@ -1,3 +1,6 @@
+import html
+import re
+
 import requests
 
 from models.job import Job
@@ -5,6 +8,123 @@ from utils.job_parser import (
     parse_remote,
     parse_experience
 )
+
+
+def clean_detail_text(value):
+
+    text = re.sub(
+        r"<(br|p|li|div|h[1-6])[^>]*>",
+        "\n",
+        str(value or ""),
+        flags=re.IGNORECASE
+    )
+
+    text = re.sub(
+        r"<[^>]+>",
+        " ",
+        text
+    )
+
+    text = html.unescape(text)
+
+    lines = [
+        " ".join(line.split())
+        for line in text.splitlines()
+    ]
+
+    return "\n".join(
+        line
+        for line in lines
+        if line
+    ).strip()
+
+
+def extract_detail_description(page_html):
+
+    marker_patterns = [
+        r"GENEL\s+NİTELİKLER\s+VE\s+İŞ\s+TANIMI",
+        r"İş\s+İlanı\s+Hakkında"
+    ]
+
+    end_patterns = [
+        r"Aday\s+Kriterleri",
+        r"Şirket\s+Hakkında",
+        r"Hakkımızda",
+        r"Yan\s+Haklar",
+        r"İlgini\s+Çekebilecek",
+        r"Benzer\s+İlan"
+    ]
+
+    clean_page_text = clean_detail_text(
+        page_html
+    )
+
+    start_index = -1
+
+    for pattern in marker_patterns:
+
+        match = re.search(
+            pattern,
+            clean_page_text,
+            flags=re.IGNORECASE
+        )
+
+        if match:
+
+            start_index = match.end()
+
+            break
+
+    if start_index == -1:
+
+        return ""
+
+    detail_text = clean_page_text[start_index:].strip()
+
+    end_indexes = []
+
+    for pattern in end_patterns:
+
+        match = re.search(
+            pattern,
+            detail_text,
+            flags=re.IGNORECASE
+        )
+
+        if match:
+
+            end_indexes.append(
+                match.start()
+            )
+
+    if end_indexes:
+
+        detail_text = detail_text[:min(end_indexes)]
+
+    return detail_text.strip()
+
+
+def fetch_kariyer_detail_description(job_url):
+
+    if not job_url:
+
+        return ""
+
+    response = requests.get(
+        job_url,
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7"
+        },
+        timeout=12
+    )
+
+    response.raise_for_status()
+
+    return extract_detail_description(
+        response.text
+    )
 
 
 def get_logo_url(item):

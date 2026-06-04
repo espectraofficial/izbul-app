@@ -1,4 +1,5 @@
 from scrapers.kariyer import search_kariyer
+from scrapers.eleman import search_eleman
 from scrapers.jooble import (
     get_jooble_api_key,
     search_jooble
@@ -276,7 +277,8 @@ def count_jobs_by_source(jobs):
 
     source_sites = {
         "kariyer": "Kariyer",
-        "jooble": "Jooble"
+        "jooble": "Jooble",
+        "eleman": "Eleman.net"
     }
 
     counts = {
@@ -312,7 +314,7 @@ def smart_search(
     all_jobs = []
 
     selected_sources = set(
-        ["kariyer", "jooble"]
+        ["kariyer", "jooble", "eleman"]
         if sources is None
         else sources
     )
@@ -342,6 +344,10 @@ def smart_search(
     jooble_location = get_search_location(
         selected_city
     )
+
+    eleman_location = str(
+        selected_city or ""
+    ).strip()
 
     if not selected_sources:
 
@@ -405,6 +411,40 @@ def smart_search(
                     emit_status(message)
 
                     print("Kariyer hata:", e)
+
+    # ELEMAN.NET
+    if "eleman" in selected_sources:
+
+        try:
+
+            emit_status("Eleman.net aranıyor...")
+
+            eleman_jobs = search_eleman(
+                keyword,
+                city=eleman_location,
+                raise_errors=True,
+                max_pages=1
+            )
+
+            all_jobs.extend(
+                eleman_jobs
+            )
+
+        except Exception as e:
+
+            message = "Eleman.net geçici olarak yanıt vermedi."
+
+            add_source_error(
+                "eleman",
+                message
+            )
+
+            emit_status(message)
+
+            print(
+                "Eleman.net hata:",
+                e
+            )
 
     # JOOBLE
     if "jooble" in selected_sources:
