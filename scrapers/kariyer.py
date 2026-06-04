@@ -27,7 +27,12 @@ def get_logo_url(item):
     return logo_url
 
 
-def search_kariyer(keyword, city="34"):
+def search_kariyer(
+    keyword,
+    city="34",
+    raise_errors=False,
+    max_pages=2
+):
 
     jobs = []
 
@@ -52,7 +57,7 @@ def search_kariyer(keyword, city="34"):
 
     seen = set()
 
-    while True:
+    while page <= max_pages:
 
         payload = {
 
@@ -80,9 +85,15 @@ def search_kariyer(keyword, city="34"):
                 timeout=10
             )
 
+            response.raise_for_status()
+
             data = response.json()
 
         except Exception as e:
+
+            if raise_errors:
+
+                raise
 
             print(
                 "Kariyer request hata:",
@@ -132,40 +143,6 @@ def search_kariyer(keyword, city="34"):
                 seen.add(link)
 
                 new_count += 1
-
-                print("\n-------------------")
-
-                print(
-                    "TITLE:",
-                    item.get("title")
-                )
-
-                print(
-                    "POSITION LEVEL:",
-                    item.get("positionLevel")
-                )
-
-                print(
-                    "WORK MODEL:",
-                    item.get("workModel")
-                )
-
-                print(
-                    "JOB DATE TEXT:",
-                    item.get("jobDateText")
-                )
-
-                print(
-                    "POSTING DATE:",
-                    item.get("postingDate")
-                )
-
-                print(
-                    "JOB DATE STATUS:",
-                    item.get("jobDateStatus")
-                )
-
-                print("-------------------\n")
 
                 # 🔥 REMOTE
                 work_model = item.get(
