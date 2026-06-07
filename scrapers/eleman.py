@@ -55,6 +55,35 @@ def clean_text(value):
     )
 
 
+def clean_detail_text(value):
+
+    text = re.sub(
+        r"<(br|p|li|div|section|article|h[1-6])[^>]*>",
+        "\n",
+        str(value or ""),
+        flags=re.IGNORECASE
+    )
+
+    text = re.sub(
+        r"<[^>]+>",
+        " ",
+        text
+    )
+
+    text = html.unescape(text)
+
+    lines = [
+        " ".join(line.split())
+        for line in text.splitlines()
+    ]
+
+    return "\n".join(
+        line
+        for line in lines
+        if line
+    ).strip()
+
+
 def normalize_text(value):
 
     value = str(
@@ -153,6 +182,220 @@ def shorten_description(description, max_length=420):
         " ",
         1
     )[0].strip() + "..."
+
+
+def parse_eleman_remote(title="", description=""):
+
+    remote = parse_remote(
+        title=title,
+        description=description
+    )
+
+    if remote != "Belirtilmemiş":
+
+        return remote
+
+    return "Ofis"
+
+
+def extract_eleman_detail_description(
+    page_html,
+    title="",
+    company="",
+    location=""
+):
+
+    page_text = clean_detail_text(page_html)
+
+    if not page_text:
+
+        return ""
+
+    start_patterns = [
+        r"İş\s+Tanımı",
+        r"İş\s+Açıklaması",
+        r"Genel\s+Nitelikler",
+        r"Aranan\s+Nitelikler",
+        r"Pozisyon\s+Hakkında",
+        r"Görev\s+Tanımı"
+    ]
+
+    start_index = -1
+
+    for pattern in start_patterns:
+
+        match = re.search(
+            pattern,
+            page_text,
+            flags=re.IGNORECASE
+        )
+
+        if match:
+
+            start_index = match.end()
+
+            break
+
+    if start_index != -1:
+
+        detail_text = page_text[start_index:].strip()
+
+    else:
+
+        page_lines = page_text.splitlines()
+
+        header_values = [
+            normalize_text(title),
+            normalize_text(company),
+            normalize_text(location)
+        ]
+
+        header_indexes = [
+            index
+            for index, line in enumerate(page_lines[:80])
+            if normalize_text(line) in header_values
+        ]
+
+        detail_text = "\n".join(
+            page_lines[
+                max(header_indexes) + 1
+                if header_indexes
+                else 0:
+            ]
+        ).strip()
+
+    end_patterns = [
+        r"Aday\s+Kriterleri",
+        r"Yan\s+Haklar",
+        r"Benzer\s+İş\s+İlanları",
+        r"Benzer\s+İlanlar",
+        r"Benzer\s+.*\s+ilan",
+        r"İlan\s+Yayınlandığında",
+        r"Firmayı\s+Favorilerime\s+Ekle",
+        r"Konumu\s+Göster",
+        r"Başvuru\s+Yap",
+        r"Eleman\.net'te\s+yayınlanmaktadır",
+        r"Eleman\.net\s+©"
+    ]
+
+    end_indexes = []
+
+    for pattern in end_patterns:
+
+        match = re.search(
+            pattern,
+            detail_text,
+            flags=re.IGNORECASE
+        )
+
+        if match:
+
+            end_indexes.append(match.start())
+
+    if end_indexes:
+
+        detail_text = detail_text[:min(end_indexes)]
+
+    ignored_values = {
+        normalize_text(title),
+        normalize_text(company),
+        normalize_text(location),
+        "eleman net",
+        "eleman.net"
+    }
+
+    skip_fragments = [
+        "ilani icin basvuru suresi dolmustur",
+        "firmasinin aktif ilanlarina",
+        "ozgecmis olustur",
+        "gizle devamını göster",
+        "devamını göster",
+        "basvuru suresi dolmustur",
+        "paylas",
+        "kaydet"
+    ]
+
+    stop_fragments = [
+        "basvuru suresi dolmustur",
+        "benzer"
+    ]
+
+    detail_lines = []
+
+    for line in detail_text.splitlines():
+
+        line = clean_text(line)
+        normalized_line = normalize_text(line)
+
+        if not line or len(line) < 8:
+
+            continue
+
+        if normalized_line in ignored_values:
+
+            continue
+
+        if any(
+            fragment in normalized_line
+            for fragment in stop_fragments
+        ):
+
+            break
+
+        if any(
+            fragment in normalized_line
+            for fragment in skip_fragments
+        ):
+
+            continue
+
+        detail_lines.append(line)
+
+    description = "\n".join(detail_lines).strip()
+
+    if not description:
+
+        return ""
+
+    return shorten_description(
+        description,
+        max_length=2500
+    )
+
+
+def fetch_eleman_detail_description(
+    job_url,
+    title="",
+    company="",
+    location=""
+):
+
+    if not job_url:
+
+        return ""
+
+    response = requests.get(
+        job_url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/125.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7"
+        },
+        timeout=12
+    )
+
+    response.raise_for_status()
+
+    return extract_eleman_detail_description(
+        response.text,
+        title=title,
+        company=company,
+        location=location
+    )
 
 
 def slugify(value):
@@ -283,6 +526,8 @@ TITLE_END_WORDS = [
     "Görevlisi",
     "Koordinatörü",
     "Direktörü",
+    "Stajyeri",
+    "Yardımcısı",
     "Pazarlamacı",
     "Satışçı"
 ]
@@ -294,12 +539,24 @@ def strip_badge_words(value):
         r"\b(ACİL|Acil|Yeni)\b",
         "",
         str(value or "")
-    ).strip()
+    ).strip(" /-")
 
 
 def clean_location_segment(segment):
 
     segment = clean_text(segment)
+
+    if re.search(
+        r"^(Tüm\s+İlçeler|Türkiye\s+Geneli)\b",
+        segment,
+        flags=re.IGNORECASE
+    ):
+
+        return segment
+
+    if "," in segment:
+
+        return segment
 
     city_area_pattern = (
         r"^(.*?(?:İstanbul Anadolu|İstanbul Avrupa|İstanbul|"
@@ -334,6 +591,91 @@ def clean_location_segment(segment):
         return words[0]
 
     return segment
+
+
+def split_location_and_description(segment):
+
+    segment = clean_text(segment)
+
+    if not segment:
+
+        return "", ""
+
+    special_location_patterns = [
+        r"^(Tüm\s+İlçeler)\b",
+        r"^(Türkiye\s+Geneli)\b"
+    ]
+
+    for pattern in special_location_patterns:
+
+        match = re.search(
+            pattern,
+            segment,
+            flags=re.IGNORECASE
+        )
+
+        if match:
+
+            return (
+                match.group(1).strip(),
+                segment[match.end():].strip()
+            )
+
+    city_area_pattern = (
+        r"^(.*?(?:İstanbul Anadolu|İstanbul Avrupa|İstanbul|"
+        r"Ankara|İzmir|Kocaeli|Bursa|Antalya|Konya|Adana|"
+        r"Tekirdağ|Yalova|Edirne|Eskişehir|Nevşehir|Sakarya)"
+        r"(?:\s*,\s*(?:İstanbul Anadolu|İstanbul Avrupa|İstanbul|"
+        r"Ankara|İzmir|Kocaeli|Bursa|Antalya|Konya|Adana|"
+        r"Tekirdağ|Yalova|Edirne|Eskişehir|Nevşehir|Sakarya))*)"
+    )
+
+    city_match = re.search(
+        city_area_pattern,
+        segment,
+        flags=re.IGNORECASE
+    )
+
+    if city_match:
+
+        return (
+            city_match.group(1).strip(),
+            segment[city_match.end():].strip()
+        )
+
+    boundary_pattern = (
+        r"\b("
+        r"\d{4}\s+yıl(?:ından|dan|den)?|"
+        r"GENEL\s+NİTELİKLER|İŞ\s+TANIMI|İş\s+Tanımı|"
+        r"Giriş\s+Metni|Görev\s+Tanımı|İşin\s+Tanımı|"
+        r"Aranan\s+Nitelikler|Gereksinimler|Firmamız|"
+        r"Şirketimiz|Kurumlara|Müşterilerden|İlanımız"
+        r")\b"
+    )
+
+    boundary_match = re.search(
+        boundary_pattern,
+        segment,
+        flags=re.IGNORECASE
+    )
+
+    if boundary_match and boundary_match.start() > 0:
+
+        return (
+            segment[:boundary_match.start()].strip(" -,."),
+            segment[boundary_match.start():].strip()
+        )
+
+    words = segment.split()
+
+    if len(words) > 1:
+
+        return (
+            words[0].strip(" -,."),
+            " ".join(words[1:]).strip()
+        )
+
+    return segment, ""
 
 
 def extract_title_company_from_prefix(prefix, keyword=""):
@@ -427,6 +769,7 @@ def parse_company_location_description(raw_text, keyword=""):
     location = "Belirtilmemiş"
     description = text
     location_parts = []
+    description_parts = []
 
     if segments:
 
@@ -452,13 +795,21 @@ def parse_company_location_description(raw_text, keyword=""):
                 flags=re.IGNORECASE
             )[0].strip()
 
-            cleaned_segment = clean_location_segment(
+            location_part, description_part = split_location_and_description(
                 cleaned_segment
+            )
+
+            cleaned_segment = clean_location_segment(
+                location_part
             )
 
             if cleaned_segment:
 
                 location_parts.append(cleaned_segment)
+
+            if description_part:
+
+                description_parts.append(description_part)
 
         if location_parts:
 
@@ -466,12 +817,15 @@ def parse_company_location_description(raw_text, keyword=""):
 
     if len(segments) >= 3:
 
-        description = " - ".join(
-            segments[2:]
+        description_parts.extend(
+            segments[3:]
         )
+
+        description = " - ".join(description_parts)
+
     elif len(segments) >= 2:
 
-        description = segments[1]
+        description = " - ".join(description_parts) or segments[1]
 
     description = re.split(
         description_markers,
@@ -647,7 +1001,7 @@ def parse_json_ld_jobs(html_text, keyword=""):
                     description=description,
                     url=link,
                     apply_url=link,
-                    remote=parse_remote(
+                    remote=parse_eleman_remote(
                         title=title,
                         description=description
                     ),
@@ -775,7 +1129,7 @@ def parse_listing_jobs(html_text, keyword=""):
             description=description,
             url=full_url,
             apply_url=full_url,
-            remote=parse_remote(
+            remote=parse_eleman_remote(
                 title=title,
                 description=description
             ),

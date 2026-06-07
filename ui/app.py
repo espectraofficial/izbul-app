@@ -21,6 +21,7 @@ from scrapers.jooble import (
     save_jooble_api_key,
     search_jooble
 )
+from scrapers.eleman import fetch_eleman_detail_description
 from scrapers.kariyer import fetch_kariyer_detail_description
 from utils.search_engine import smart_search, normalize_text
 
@@ -145,6 +146,55 @@ def format_job_date_text(job_date_text):
     return f"Yayınlandığı tarih: {job_date_text}"
 
 
+def format_card_location(location):
+
+    location = " ".join(
+        str(location or "").split()
+    )
+
+    if not location:
+
+        return "Belirtilmemiş"
+
+    leak_markers = [
+        r"\b\d{4}\s+yıl",
+        r"\bfaaliyet\s+gösteren\b",
+        r"\bgörevlendirilmek\s+üzere\b",
+        r"\bfirmamız\b",
+        r"\bşirketimiz\b",
+        r"\bkurumlara\b"
+    ]
+
+    cut_indexes = []
+
+    for marker in leak_markers:
+
+        match = re.search(
+            marker,
+            location,
+            flags=re.IGNORECASE
+        )
+
+        if match:
+
+            cut_indexes.append(match.start())
+
+    if cut_indexes:
+
+        location = location[:min(cut_indexes)].strip(" -,.")
+
+    max_length = 72
+
+    if len(location) > max_length:
+
+        location = location[:max_length].rsplit(
+            " ",
+            1
+        )[0].strip() + "..."
+
+    return location or "Belirtilmemiş"
+
+
 def get_theme_value(label):
 
     return THEME_LABELS.get(
@@ -197,6 +247,18 @@ def get_favorites_file():
     )
 
     return app_data_dir / "favorites.json"
+
+
+def get_hidden_jobs_file():
+
+    app_data_dir = get_app_data_dir()
+
+    app_data_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    return app_data_dir / "hidden_jobs.json"
 
 
 def get_settings_file():
@@ -370,6 +432,7 @@ class JobApp(ctk.CTk):
         self.all_jobs = []
         self.filtered_jobs = []
         self.favorite_jobs = []
+        self.hidden_jobs = []
         self.toast_label = None
         self.settings = load_settings()
         self.logo_images = {}
@@ -383,9 +446,13 @@ class JobApp(ctk.CTk):
         )
 
         self.favorites_file = get_favorites_file()
+        self.hidden_jobs_file = get_hidden_jobs_file()
         self.last_status_message = "Hazır"
         self.search_summary_message = ""
         self.last_search_report = {}
+        self.source_progress = {}
+        self.source_progress_labels = {}
+        self.current_search_sources = []
         self.search_in_progress = False
         self.search_token = 0
         self.view_mode = "home"
@@ -1173,6 +1240,22 @@ class JobApp(ctk.CTk):
             pady=(0, 8)
         )
 
+        self.source_progress_frame = ctk.CTkFrame(
+            self.right_content,
+            fg_color="transparent"
+        )
+
+        self.source_progress_frame.pack(
+            fill="x",
+            padx=10,
+            pady=(0, 8)
+        )
+
+        self.home_frame = ctk.CTkFrame(
+            self.right_content,
+            corner_radius=18
+        )
+
         # =========================
         # RESULTS FRAME
         # =========================
@@ -1264,6 +1347,7 @@ class JobApp(ctk.CTk):
         )
 
         self.load_favorites()
+        self.load_hidden_jobs()
 
         self.show_welcome_screen()
 
@@ -1362,9 +1446,62 @@ class JobApp(ctk.CTk):
     # WELCOME SCREEN
     # =========================
 
+    def show_home_layout(self):
+
+        for widget in [
+            self.status_label,
+            self.source_progress_frame,
+            self.results_frame,
+            self.pagination_frame
+        ]:
+
+            widget.pack_forget()
+
+        self.home_frame.pack(
+            fill="both",
+            expand=True,
+            pady=(0, 10)
+        )
+
+    def show_results_layout(self):
+
+        self.home_frame.pack_forget()
+
+        for widget in [
+            self.status_label,
+            self.source_progress_frame,
+            self.results_frame,
+            self.pagination_frame
+        ]:
+
+            widget.pack_forget()
+
+        self.status_label.pack(
+            fill="x",
+            padx=10,
+            pady=(0, 8)
+        )
+
+        self.source_progress_frame.pack(
+            fill="x",
+            padx=10,
+            pady=(0, 8)
+        )
+
+        self.results_frame.pack(
+            fill="both",
+            expand=True,
+            pady=(0, 10)
+        )
+
+        self.pagination_frame.pack(
+            fill="x"
+        )
+
     def show_welcome_screen(self):
 
         self.view_mode = "home"
+        self.show_home_layout()
 
         self.filtered_jobs = []
         self.current_page = 1
@@ -1381,11 +1518,11 @@ class JobApp(ctk.CTk):
             state="disabled"
         )
 
-        for widget in self.results_frame.winfo_children():
+        for widget in self.home_frame.winfo_children():
             widget.destroy()
 
         container = ctk.CTkFrame(
-            self.results_frame,
+            self.home_frame,
             corner_radius=20
         )
 
@@ -1481,8 +1618,8 @@ class JobApp(ctk.CTk):
 
             status_card = ctk.CTkFrame(
                 status_frame,
-                width=190,
-                height=72,
+                width=205,
+                height=86,
                 corner_radius=14
             )
 
@@ -1492,6 +1629,18 @@ class JobApp(ctk.CTk):
             )
 
             status_card.pack_propagate(False)
+            status_card.grid_rowconfigure(
+                0,
+                weight=1
+            )
+            status_card.grid_rowconfigure(
+                3,
+                weight=1
+            )
+            status_card.grid_columnconfigure(
+                0,
+                weight=1
+            )
 
             ctk.CTkLabel(
                 status_card,
@@ -1501,8 +1650,10 @@ class JobApp(ctk.CTk):
                     "Arial",
                     12
                 )
-            ).pack(
-                pady=(12, 3)
+            ).grid(
+                row=1,
+                column=0,
+                pady=(0, 4)
             )
 
             ctk.CTkLabel(
@@ -1513,7 +1664,10 @@ class JobApp(ctk.CTk):
                     14,
                     "bold"
                 )
-            ).pack()
+            ).grid(
+                row=2,
+                column=0
+            )
 
         if not jooble_ready:
 
@@ -1687,8 +1841,8 @@ class JobApp(ctk.CTk):
             ),
 
             (
-                "🏢 Firma Logoları",
-                "İlan kartlarında firma kimliğini daha görünür yapar."
+                "🚫 İlan Gizleme",
+                "İlgilenmediğiniz ilanları sonuçlardan saklar."
             )
         ]
 
@@ -2234,6 +2388,51 @@ class JobApp(ctk.CTk):
             padx=(8, 0)
         )
 
+        hidden_info = ctk.CTkLabel(
+            container,
+            text=f"Gizlenen ilanlar: {len(self.hidden_jobs)}",
+            text_color="gray",
+            font=(
+                "Arial",
+                13
+            ),
+            anchor="w"
+        )
+
+        hidden_info.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 8)
+        )
+
+        def clear_hidden_from_settings():
+
+            self.clear_hidden_jobs()
+
+            hidden_info.configure(
+                text="Gizlenen ilanlar: 0"
+            )
+
+            set_settings_status(
+                "Gizlenen ilanlar temizlendi.",
+                "#27AE60"
+            )
+
+        clear_hidden_button = ctk.CTkButton(
+            container,
+            text="Gizlenen İlanları Temizle",
+            height=38,
+            fg_color="#3A3A3A",
+            hover_color="#4A4A4A",
+            command=clear_hidden_from_settings
+        )
+
+        clear_hidden_button.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 14)
+        )
+
         data_path_label = ctk.CTkLabel(
 
             container,
@@ -2594,6 +2793,7 @@ class JobApp(ctk.CTk):
 
         self.search_in_progress = True
         self.search_token += 1
+        self.current_search_sources = selected_sources[:]
 
         active_token = self.search_token
 
@@ -2608,6 +2808,10 @@ class JobApp(ctk.CTk):
 
         self.set_status_message(
             "Arama başlatıldı..."
+        )
+
+        self.reset_source_progress(
+            selected_sources
         )
 
         threading.Thread(
@@ -2639,6 +2843,12 @@ class JobApp(ctk.CTk):
         self.set_status_message(
             "Arama durduruldu."
         )
+
+        for source in self.source_progress:
+
+            self.source_progress[source]["status"] = "Durduruldu"
+
+        self.render_source_progress()
 
     def get_selected_sources(self):
 
@@ -2706,12 +2916,196 @@ class JobApp(ctk.CTk):
                 text=message
             )
 
-    def thread_safe_status(self, message):
+    def reset_source_progress(self, selected_sources):
+
+        self.source_progress = {
+            source: {
+                "status": "Bekliyor",
+                "count": 0,
+                "message": ""
+            }
+            for source in selected_sources
+        }
+
+        self.render_source_progress()
+
+    def get_source_progress_color(self, status):
+
+        colors = {
+            "Bekliyor": "#3A3A3A",
+            "Aranıyor": "#1F6AA5",
+            "Tamamlandı": "#2E8B57",
+            "Atlandı": "#7A5A22",
+            "Hata": "#8B2E2E",
+            "Durduruldu": "#555555"
+        }
+
+        return colors.get(
+            status,
+            "#3A3A3A"
+        )
+
+    def render_source_progress(self):
+
+        if not hasattr(self, "source_progress_frame"):
+
+            return
+
+        for widget in self.source_progress_frame.winfo_children():
+
+            widget.destroy()
+
+        self.source_progress_labels = {}
+
+        source_labels = {
+            "kariyer": "Kariyer.net",
+            "jooble": "Jooble",
+            "eleman": "Eleman.net"
+        }
+
+        for source in [
+            "kariyer",
+            "eleman",
+            "jooble"
+        ]:
+
+            if source not in self.source_progress:
+
+                continue
+
+            data = self.source_progress[source]
+            status = data.get(
+                "status",
+                "Bekliyor"
+            )
+            count = data.get(
+                "count",
+                0
+            )
+
+            text = f"{source_labels.get(source, source)}: {status}"
+
+            if count is not None and status in [
+                "Aranıyor",
+                "Tamamlandı"
+            ]:
+
+                text = f"{text} · {count}"
+
+            label = ctk.CTkLabel(
+                self.source_progress_frame,
+                text=text,
+                fg_color=self.get_source_progress_color(status),
+                corner_radius=10,
+                font=(
+                    "Arial",
+                    12,
+                    "bold"
+                ),
+                padx=10,
+                pady=4
+            )
+
+            label.pack(
+                side="left",
+                padx=(0, 8)
+            )
+
+            self.source_progress_labels[source] = label
+
+    def update_source_progress(self, progress):
+
+        if not isinstance(progress, dict):
+
+            return
+
+        source = progress.get("source")
+
+        if not source:
+
+            return
+
+        self.source_progress[source] = {
+            "status": progress.get(
+                "status",
+                "Bekliyor"
+            ),
+            "count": progress.get(
+                "count",
+                0
+            ),
+            "message": progress.get(
+                "message",
+                ""
+            )
+        }
+
+        self.render_source_progress()
+
+    def finalize_source_progress(self, selected_sources, search_report):
+
+        source_counts = (
+            search_report or {}
+        ).get(
+            "source_counts",
+            {}
+        )
+
+        source_errors = (
+            search_report or {}
+        ).get(
+            "source_errors",
+            {}
+        )
+
+        for source in selected_sources:
+
+            status = (
+                "Hata"
+                if source in source_errors
+                else "Tamamlandı"
+            )
+
+            if source in source_errors and "atlandı" in source_errors[source].lower():
+
+                status = "Atlandı"
+
+            self.source_progress[source] = {
+                "status": status,
+                "count": source_counts.get(
+                    source,
+                    0
+                ),
+                "message": source_errors.get(
+                    source,
+                    ""
+                )
+            }
+
+        self.render_source_progress()
+
+    def thread_safe_status(self, message, search_token=None):
 
         self.after(
             0,
             lambda:
-            self.set_status_message(message)
+            (
+                self.set_status_message(message)
+                if search_token is None or search_token == self.search_token
+                else None
+            )
+        )
+
+    def thread_safe_source_progress(self, progress, search_token):
+
+        self.after(
+            0,
+            lambda:
+            (
+                self.update_source_progress(progress)
+                if search_token == self.search_token
+                else None
+            )
         )
 
     def search_jobs(self, keyword, selected_city, selected_sources, search_token):
@@ -2722,7 +3116,16 @@ class JobApp(ctk.CTk):
             keyword,
             selected_city=selected_city,
             sources=selected_sources,
-            status_callback=self.thread_safe_status,
+            status_callback=lambda message:
+            self.thread_safe_status(
+                message,
+                search_token
+            ),
+            progress_callback=lambda progress:
+            self.thread_safe_source_progress(
+                progress,
+                search_token
+            ),
             report_callback=search_report.update
         )
 
@@ -2822,6 +3225,11 @@ class JobApp(ctk.CTk):
 
         self.search_in_progress = False
 
+        self.finalize_source_progress(
+            self.current_search_sources,
+            self.last_search_report
+        )
+
         self.update_ui()
         self.apply_filters()
 
@@ -2920,6 +3328,152 @@ class JobApp(ctk.CTk):
             print("Favoriler yüklenemedi:", e)
 
             self.favorite_jobs = []
+
+    def save_hidden_jobs(self):
+
+        try:
+
+            Path(self.hidden_jobs_file).parent.mkdir(
+                parents=True,
+                exist_ok=True
+            )
+
+            with open(
+                self.hidden_jobs_file,
+                "w",
+                encoding="utf-8"
+            ) as file:
+
+                json.dump(
+                    self.hidden_jobs,
+                    file,
+                    ensure_ascii=False,
+                    indent=4
+                )
+
+        except Exception as e:
+
+            print("Gizlenen ilanlar kaydedilemedi:", e)
+
+    def load_hidden_jobs(self):
+
+        if not os.path.exists(self.hidden_jobs_file):
+
+            self.hidden_jobs = []
+
+            return
+
+        try:
+
+            with open(
+                self.hidden_jobs_file,
+                "r",
+                encoding="utf-8"
+            ) as file:
+
+                data = json.load(file)
+
+            self.hidden_jobs = (
+                data
+                if isinstance(data, list)
+                else []
+            )
+
+        except Exception as e:
+
+            print("Gizlenen ilanlar yüklenemedi:", e)
+
+            self.hidden_jobs = []
+
+    def get_job_identity(self, job):
+
+        return str(
+            getattr(
+                job,
+                "url",
+                ""
+            ) or getattr(
+                job,
+                "apply_url",
+                ""
+            )
+        ).strip()
+
+    def is_hidden_job(self, job):
+
+        job_identity = self.get_job_identity(job)
+
+        if not job_identity:
+
+            return False
+
+        return any(
+            hidden.get("url") == job_identity
+            for hidden in self.hidden_jobs
+        )
+
+    def hide_job(self, job):
+
+        job_identity = self.get_job_identity(job)
+
+        if not job_identity:
+
+            self.show_toast(
+                "Bu ilan gizlenemedi.",
+                "#C0392B"
+            )
+
+            return
+
+        if not self.is_hidden_job(job):
+
+            self.hidden_jobs.append(
+                {
+                    "url": job_identity,
+                    "title": str(
+                        getattr(
+                            job,
+                            "title",
+                            ""
+                        )
+                    ),
+                    "company": str(
+                        getattr(
+                            job,
+                            "company",
+                            ""
+                        )
+                    ),
+                    "site": str(
+                        getattr(
+                            job,
+                            "site",
+                            ""
+                        )
+                    ),
+                    "hidden_at": get_current_timestamp()
+                }
+            )
+
+            self.save_hidden_jobs()
+
+        self.show_toast(
+            "İlan gizlendi.",
+            "#3A3A3A"
+        )
+
+        self.apply_filters()
+
+    def clear_hidden_jobs(self):
+
+        self.hidden_jobs = []
+        self.save_hidden_jobs()
+        self.apply_filters()
+
+        self.show_toast(
+            "Gizlenen ilanlar temizlendi.",
+            "#27AE60"
+        )
 
     # =========================
     # FAVORITES
@@ -3604,6 +4158,75 @@ class JobApp(ctk.CTk):
             daemon=True
         ).start()
 
+    def load_eleman_description(self, job, description_box):
+
+        def run():
+
+            try:
+
+                description = fetch_eleman_detail_description(
+                    self.get_job_link(job),
+                    title=getattr(
+                        job,
+                        "title",
+                        ""
+                    ),
+                    company=getattr(
+                        job,
+                        "company",
+                        ""
+                    ),
+                    location=getattr(
+                        job,
+                        "location",
+                        ""
+                    )
+                )
+
+                if not description:
+
+                    description = (
+                        "Eleman.net ilan açıklaması alınamadı. "
+                        "Başvuru sayfasından görüntüleyebilirsiniz."
+                    )
+
+                else:
+
+                    self.save_loaded_description(
+                        job,
+                        description
+                    )
+
+                self.after(
+                    0,
+                    lambda:
+                    self.update_description_box(
+                        description_box,
+                        description
+                    )
+                )
+
+            except Exception as e:
+
+                print("Eleman.net detay açıklaması alınamadı:", e)
+
+                self.after(
+                    0,
+                    lambda:
+                    self.update_description_box(
+                        description_box,
+                        (
+                            "Eleman.net ilan açıklaması alınamadı. "
+                            "Başvuru sayfasından görüntüleyebilirsiniz."
+                        )
+                    )
+                )
+
+        threading.Thread(
+            target=run,
+            daemon=True
+        ).start()
+
     def show_job_details(self, job):
 
         detail_window = ctk.CTkToplevel(self)
@@ -4002,18 +4625,33 @@ class JobApp(ctk.CTk):
             ""
         ).strip()
 
+        job_site = getattr(
+            job,
+            "site",
+            ""
+        )
+
         should_fetch_kariyer_detail = (
             not description and
-            getattr(
-                job,
-                "site",
-                ""
-            ) == "Kariyer"
+            job_site == "Kariyer"
+        )
+
+        should_fetch_eleman_detail = (
+            job_site == "Eleman.net" and
+            (
+                not description or
+                description.endswith("...") or
+                len(description) <= 450
+            )
         )
 
         if should_fetch_kariyer_detail:
 
             description = "Kariyer.net ilan detayı yükleniyor..."
+
+        elif should_fetch_eleman_detail:
+
+            description = "Eleman.net ilan detayı yükleniyor..."
 
         elif not description:
 
@@ -4031,6 +4669,13 @@ class JobApp(ctk.CTk):
         if should_fetch_kariyer_detail:
 
             self.load_kariyer_description(
+                job,
+                description_box
+            )
+
+        if should_fetch_eleman_detail:
+
+            self.load_eleman_description(
                 job,
                 description_box
             )
@@ -4190,7 +4835,11 @@ class JobApp(ctk.CTk):
 
         else:
 
-            filtered = self.all_jobs
+            filtered = [
+                job
+                for job in self.all_jobs
+                if not self.is_hidden_job(job)
+            ]
 
             selected_application_statuses = (
                 self.get_selected_application_statuses()
@@ -4695,6 +5344,10 @@ class JobApp(ctk.CTk):
 
     def display_jobs(self, scroll_to_top=False):
 
+        if self.view_mode != "home":
+
+            self.show_results_layout()
+
         for widget in self.results_frame.winfo_children():
             widget.destroy()
 
@@ -4960,14 +5613,18 @@ class JobApp(ctk.CTk):
 
                 card,
 
-                text=f"📍 {job.location}",
+                text=f"📍 {format_card_location(job.location)}",
 
                 font=(
                     "Arial",
                     14
                 ),
 
-                anchor="w"
+                anchor="w",
+
+                justify="left",
+
+                wraplength=820
             )
 
             location.pack(
@@ -5300,6 +5957,38 @@ class JobApp(ctk.CTk):
                 side="left",
                 padx=5
             )
+
+            if (
+                self.view_mode == "results" and
+                not is_favorite
+            ):
+
+                hide_button = ctk.CTkButton(
+
+                    button_frame,
+
+                    text="Gizle",
+
+                    width=92,
+
+                    height=38,
+
+                    corner_radius=12,
+
+                    fg_color="#2F2F2F",
+
+                    hover_color="#5A2F2F",
+
+                    text_color="white",
+
+                    command=lambda j=job:
+                    self.hide_job(j)
+                )
+
+                hide_button.pack(
+                    side="left",
+                    padx=5
+                )
 
             favorite_button.bind(
 

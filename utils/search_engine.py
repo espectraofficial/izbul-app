@@ -308,7 +308,8 @@ def smart_search(
     selected_city=None,
     sources=None,
     status_callback=None,
-    report_callback=None
+    report_callback=None,
+    progress_callback=None
 ):
 
     all_jobs = []
@@ -324,6 +325,19 @@ def smart_search(
         if status_callback:
 
             status_callback(message)
+
+    def emit_progress(source, status, count=None, message=""):
+
+        if progress_callback:
+
+            progress_callback(
+                {
+                    "source": source,
+                    "status": status,
+                    "count": count,
+                    "message": message
+                }
+            )
 
     source_errors = {}
 
@@ -355,6 +369,14 @@ def smart_search(
 
         return []
 
+    for source in selected_sources:
+
+        emit_progress(
+            source,
+            "Bekliyor",
+            count=0
+        )
+
     # 🔥 KARIYER.NET
     if "kariyer" in selected_sources:
 
@@ -368,6 +390,15 @@ def smart_search(
             emit_status(
                 "Kariyer.net bu şehir için atlandı."
             )
+
+            emit_progress(
+                "kariyer",
+                "Atlandı",
+                count=0,
+                message="Şehir kodu bulunamadı."
+            )
+
+        kariyer_start_count = len(all_jobs)
 
         for kw in kariyer_keywords:
 
@@ -386,6 +417,16 @@ def smart_search(
 
                     emit_status(
                         f"Kariyer.net aranıyor: {city_name}"
+                    )
+
+                    emit_progress(
+                        "kariyer",
+                        "Aranıyor",
+                        count=max(
+                            0,
+                            len(all_jobs) - kariyer_start_count
+                        ),
+                        message=city_name
                     )
 
                     kariyer_jobs = search_kariyer(
@@ -410,7 +451,28 @@ def smart_search(
 
                     emit_status(message)
 
+                    emit_progress(
+                        "kariyer",
+                        "Hata",
+                        count=max(
+                            0,
+                            len(all_jobs) - kariyer_start_count
+                        ),
+                        message=message
+                    )
+
                     print("Kariyer hata:", e)
+
+        if locations and "kariyer" not in source_errors:
+
+            emit_progress(
+                "kariyer",
+                "Tamamlandı",
+                count=max(
+                    0,
+                    len(all_jobs) - kariyer_start_count
+                )
+            )
 
     # ELEMAN.NET
     if "eleman" in selected_sources:
@@ -418,6 +480,14 @@ def smart_search(
         try:
 
             emit_status("Eleman.net aranıyor...")
+
+            eleman_start_count = len(all_jobs)
+
+            emit_progress(
+                "eleman",
+                "Aranıyor",
+                count=0
+            )
 
             eleman_jobs = search_eleman(
                 keyword,
@@ -430,6 +500,15 @@ def smart_search(
                 eleman_jobs
             )
 
+            emit_progress(
+                "eleman",
+                "Tamamlandı",
+                count=max(
+                    0,
+                    len(all_jobs) - eleman_start_count
+                )
+            )
+
         except Exception as e:
 
             message = "Eleman.net geçici olarak yanıt vermedi."
@@ -440,6 +519,13 @@ def smart_search(
             )
 
             emit_status(message)
+
+            emit_progress(
+                "eleman",
+                "Hata",
+                count=0,
+                message=message
+            )
 
             print(
                 "Eleman.net hata:",
@@ -460,13 +546,31 @@ def smart_search(
 
             emit_status(message)
 
+            emit_progress(
+                "jooble",
+                "Atlandı",
+                count=0,
+                message=message
+            )
+
         else:
+
+            jooble_start_count = len(all_jobs)
 
             for kw in keywords:
 
                 try:
 
                     emit_status("Jooble aranıyor...")
+
+                    emit_progress(
+                        "jooble",
+                        "Aranıyor",
+                        count=max(
+                            0,
+                            len(all_jobs) - jooble_start_count
+                        )
+                    )
 
                     jooble_jobs = search_jooble(
                         kw,
@@ -501,10 +605,31 @@ def smart_search(
 
                     emit_status(message)
 
+                    emit_progress(
+                        "jooble",
+                        "Hata",
+                        count=max(
+                            0,
+                            len(all_jobs) - jooble_start_count
+                        ),
+                        message=message
+                    )
+
                     print(
                         "Jooble hata:",
                         e
                     )
+
+            if "jooble" not in source_errors:
+
+                emit_progress(
+                    "jooble",
+                    "Tamamlandı",
+                    count=max(
+                        0,
+                        len(all_jobs) - jooble_start_count
+                    )
+                )
 
     # 🔥 DUPLICATE REMOVE
     unique_jobs = deduplicate_jobs(
