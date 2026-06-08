@@ -20,6 +20,7 @@ pyinstaller \
   --windowed \
   --name "$APP_NAME" \
   --icon "$ICON_PATH" \
+  --osx-bundle-identifier "com.umitegeguldez.izbul" \
   --collect-data customtkinter \
   --collect-data PIL \
   --workpath build/work \

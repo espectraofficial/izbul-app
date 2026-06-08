@@ -58,6 +58,11 @@ python ui/app.py
 
 The project is packaged separately on macOS and Windows. Use the generated files under `release/` for distribution.
 
+- App name: `İzbul`
+- Version: `1.0.0`
+- Creator / Publisher: `Ümit Ege Güldez`
+- macOS bundle identifier: `com.umitegeguldez.izbul`
+
 - macOS builds should be created on macOS.
 - Windows builds should be created on Windows.
 

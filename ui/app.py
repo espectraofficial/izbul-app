@@ -31,6 +31,7 @@ ctk.set_default_color_theme("blue")
 
 
 APP_NAME = "İzbul"
+APP_VERSION = "1.0.0"
 LEGACY_APP_NAME = "Job Finder"
 
 DEFAULT_SETTINGS = {
@@ -2653,6 +2654,7 @@ class JobApp(ctk.CTk):
         ctk.CTkLabel(
             ownership_frame,
             text=(
+                f"Sürüm: {APP_VERSION}\n"
                 "Yapımcı: Ümit Ege Güldez\n"
                 "© 2026 Ümit Ege Güldez. Tüm hakları saklıdır."
             ),

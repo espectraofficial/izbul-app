@@ -41,5 +41,5 @@ app = BUNDLE(
     exe,
     name='İzbul.app',
     icon='icon.icns',
-    bundle_identifier=None,
+    bundle_identifier='com.umitegeguldez.izbul',
 )
