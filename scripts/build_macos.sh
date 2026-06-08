@@ -47,10 +47,14 @@ xattr -cr "dist/$APP_NAME.app" 2>/dev/null || true
 codesign --force --deep --sign - "dist/$APP_NAME.app" 2>/dev/null || true
 
 mkdir -p release/macos
+rm -rf build/dmg
+mkdir -p build/dmg
+cp -R "dist/$APP_NAME.app" "build/dmg/$APP_NAME.app"
+ln -s /Applications "build/dmg/Applications"
 
 if hdiutil create \
     -volname "$DISPLAY_NAME" \
-    -srcfolder "dist/$APP_NAME.app" \
+    -srcfolder "build/dmg" \
     -ov \
     -format UDZO \
     "release/macos/$DMG_NAME"; then
