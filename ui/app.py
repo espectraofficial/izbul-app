@@ -33,6 +33,13 @@ ctk.set_default_color_theme("blue")
 APP_NAME = "İzbul"
 APP_VERSION = "1.0.0"
 LEGACY_APP_NAME = "Job Finder"
+GITHUB_REPO = "espectraofficial/job-finder-app"
+GITHUB_RELEASES_API = (
+    f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+)
+GITHUB_RELEASES_URL = (
+    f"https://github.com/{GITHUB_REPO}/releases/latest"
+)
 
 DEFAULT_SETTINGS = {
     "default_city": "",
@@ -195,6 +202,37 @@ def format_card_location(location):
         )[0].strip() + "..."
 
     return location or "Belirtilmemiş"
+
+
+def parse_version_parts(version):
+
+    version = str(
+        version or ""
+    ).strip().lstrip("vV")
+
+    parts = []
+
+    for part in re.split(
+        r"[^0-9]+",
+        version
+    ):
+
+        if part:
+
+            parts.append(int(part))
+
+    while len(parts) < 3:
+
+        parts.append(0)
+
+    return tuple(parts[:3])
+
+
+def is_newer_version(latest_version, current_version):
+
+    return parse_version_parts(latest_version) > parse_version_parts(
+        current_version
+    )
 
 
 def get_theme_value(label):
@@ -498,6 +536,8 @@ class JobApp(ctk.CTk):
         self.source_progress = {}
         self.source_progress_labels = {}
         self.current_search_sources = []
+        self.latest_release_info = None
+        self.update_check_in_progress = False
         self.search_in_progress = False
         self.search_token = 0
         self.view_mode = "home"
@@ -1396,6 +1436,12 @@ class JobApp(ctk.CTk):
 
         self.show_welcome_screen()
 
+        self.after(
+            1200,
+            lambda:
+            self.check_for_updates(silent=True)
+        )
+
     # =========================
     # BACK
     # =========================
@@ -2114,6 +2160,194 @@ class JobApp(ctk.CTk):
 
         webbrowser.open(url)
 
+    def get_latest_release(self):
+
+        response = requests.get(
+            GITHUB_RELEASES_API,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "User-Agent": f"Izbul/{APP_VERSION}"
+            },
+            timeout=8
+        )
+
+        response.raise_for_status()
+
+        release = response.json()
+
+        tag_name = str(
+            release.get(
+                "tag_name",
+                ""
+            )
+        ).strip()
+
+        html_url = str(
+            release.get(
+                "html_url",
+                ""
+            )
+        ).strip() or GITHUB_RELEASES_URL
+
+        assets = release.get(
+            "assets",
+            []
+        )
+
+        download_url = html_url
+
+        preferred_asset_groups = []
+
+        if sys.platform == "darwin":
+
+            preferred_asset_groups = [
+                ["macOS", "dmg"],
+                ["macOS", "zip"]
+            ]
+
+        elif sys.platform.startswith("win"):
+
+            preferred_asset_groups = [
+                ["Windows", "Setup", "exe"],
+                ["Windows", "zip"]
+            ]
+
+        if preferred_asset_groups and isinstance(assets, list):
+
+            for keywords in preferred_asset_groups:
+
+                matching_asset = None
+
+                for asset in assets:
+
+                    asset_name = str(
+                        asset.get(
+                            "name",
+                            ""
+                        )
+                    )
+
+                    if all(
+                        keyword.lower() in asset_name.lower()
+                        for keyword in keywords
+                    ):
+
+                        matching_asset = asset
+
+                        break
+
+                if matching_asset:
+
+                    download_url = matching_asset.get(
+                        "browser_download_url",
+                        html_url
+                    )
+
+                    break
+
+        return {
+            "version": tag_name,
+            "url": html_url,
+            "download_url": download_url
+        }
+
+    def open_latest_release(self):
+
+        release_info = self.latest_release_info or {}
+
+        webbrowser.open(
+            release_info.get(
+                "download_url",
+                GITHUB_RELEASES_URL
+            )
+        )
+
+    def handle_update_result(self, release_info, silent=False):
+
+        self.update_check_in_progress = False
+
+        latest_version = release_info.get(
+            "version",
+            ""
+        )
+
+        if latest_version and is_newer_version(
+            latest_version,
+            APP_VERSION
+        ):
+
+            self.latest_release_info = release_info
+
+            self.show_toast(
+                f"Yeni sürüm mevcut: {latest_version}",
+                "#1F6AA5"
+            )
+
+            return True
+
+        self.latest_release_info = None
+
+        if not silent:
+
+            self.show_toast(
+                "Uygulama güncel.",
+                "#27AE60"
+            )
+
+        return False
+
+    def handle_update_error(self, error, silent=False):
+
+        self.update_check_in_progress = False
+
+        print("Güncelleme kontrolü başarısız:", error)
+
+        if not silent:
+
+            self.show_toast(
+                "Güncelleme kontrolü başarısız.",
+                "#C0392B"
+            )
+
+    def check_for_updates(self, silent=False):
+
+        if self.update_check_in_progress:
+
+            return
+
+        self.update_check_in_progress = True
+
+        def run():
+
+            try:
+
+                release_info = self.get_latest_release()
+
+                self.after(
+                    0,
+                    lambda:
+                    self.handle_update_result(
+                        release_info,
+                        silent=silent
+                    )
+                )
+
+            except Exception as e:
+
+                self.after(
+                    0,
+                    lambda:
+                    self.handle_update_error(
+                        e,
+                        silent=silent
+                    )
+                )
+
+        threading.Thread(
+            target=run,
+            daemon=True
+        ).start()
+
     def show_settings(self):
 
         settings_window = ctk.CTkToplevel(self)
@@ -2604,6 +2838,109 @@ class JobApp(ctk.CTk):
             padx=(8, 0)
         )
 
+        update_label = ctk.CTkLabel(
+            container,
+            text=f"Güncellemeler: mevcut sürüm {APP_VERSION}",
+            text_color="gray",
+            font=(
+                "Arial",
+                13
+            ),
+            anchor="w"
+        )
+
+        update_label.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 8)
+        )
+
+        update_actions = ctk.CTkFrame(
+            container,
+            fg_color="transparent"
+        )
+
+        update_actions.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 14)
+        )
+
+        download_update_button = ctk.CTkButton(
+            update_actions,
+            text="Yeni Sürümü İndir",
+            height=38,
+            fg_color="#2E8B57",
+            hover_color="#247348",
+            command=self.open_latest_release
+        )
+
+        def refresh_update_buttons():
+
+            if self.latest_release_info:
+
+                update_label.configure(
+                    text=(
+                        "Güncellemeler: yeni sürüm mevcut "
+                        f"{self.latest_release_info.get('version', '')}"
+                    ),
+                    text_color="#27AE60"
+                )
+
+                if not download_update_button.winfo_ismapped():
+
+                    download_update_button.pack(
+                        side="left",
+                        fill="x",
+                        expand=True,
+                        padx=(8, 0)
+                    )
+
+            else:
+
+                update_label.configure(
+                    text=f"Güncellemeler: mevcut sürüm {APP_VERSION}",
+                    text_color="gray"
+                )
+
+                if download_update_button.winfo_ismapped():
+
+                    download_update_button.pack_forget()
+
+        def check_updates_from_settings():
+
+            update_label.configure(
+                text="Güncellemeler kontrol ediliyor...",
+                text_color="#1F6AA5"
+            )
+
+            self.check_for_updates(
+                silent=False
+            )
+
+            settings_window.after(
+                1200,
+                refresh_update_buttons
+            )
+
+        check_update_button = ctk.CTkButton(
+            update_actions,
+            text="Güncellemeleri Kontrol Et",
+            height=38,
+            fg_color="#3A3A3A",
+            hover_color="#4A4A4A",
+            command=check_updates_from_settings
+        )
+
+        check_update_button.pack(
+            side="left",
+            fill="x",
+            expand=True,
+            padx=(0, 8)
+        )
+
+        refresh_update_buttons()
+
         data_path_label = ctk.CTkLabel(
 
             container,
@@ -2665,6 +3002,53 @@ class JobApp(ctk.CTk):
             ),
             anchor="w",
             justify="left"
+        ).pack(
+            fill="x",
+            padx=16,
+            pady=(0, 14)
+        )
+
+        source_notice_frame = ctk.CTkFrame(
+            container,
+            corner_radius=14
+        )
+
+        source_notice_frame.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 16)
+        )
+
+        ctk.CTkLabel(
+            source_notice_frame,
+            text="Kaynak Bildirimi",
+            font=(
+                "Arial",
+                14,
+                "bold"
+            ),
+            anchor="w"
+        ).pack(
+            fill="x",
+            padx=16,
+            pady=(14, 4)
+        )
+
+        ctk.CTkLabel(
+            source_notice_frame,
+            text=(
+                "İzbul bağımsız bir uygulamadır. Kariyer.net, Jooble, "
+                "Eleman.net veya LinkedIn ile resmi bir ortaklığı yoktur. "
+                "Üçüncü taraf marka ve ilan hakları ilgili sahiplerine aittir."
+            ),
+            text_color="#D8D8D8",
+            font=(
+                "Arial",
+                12
+            ),
+            anchor="w",
+            justify="left",
+            wraplength=420
         ).pack(
             fill="x",
             padx=16,

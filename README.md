@@ -14,12 +14,16 @@ Bu projenin kaynak kodu, tasarımı, uygulama adı ve dağıtım paketleri Ümit
 
 All rights reserved. No part of this project may be copied, modified, redistributed, sold, sublicensed, or claimed as another person's or organization's work without prior written permission from Ümit Ege Güldez.
 
+See [NOTICE.md](NOTICE.md) for third-party source, trademark, and dependency notices.
+
 ## Current Sources
 
 - Kariyer.net
 - Jooble, when a Jooble API key is provided
 - Eleman.net
 - LinkedIn Jobs external search link
+
+Kariyer.net search results are obtained through a JSON search endpoint used by Kariyer.net's public web search flow. This does not imply an official partnership, endorsement, sponsorship, or authorization by Kariyer.net. See [NOTICE.md](NOTICE.md) for details.
 
 ## Setup
 
@@ -87,3 +91,10 @@ Distribution outputs:
 - Windows: `release/windows/Izbul-Windows-Setup.exe`
 
 GitHub Actions can build both installers from the **Build Installers** workflow. Run it manually from the Actions tab, then download the generated artifacts.
+
+## Updates
+
+İzbul checks the latest GitHub Release on startup and from the Settings screen.
+
+Use semantic release tags such as `v1.0.0`, `v1.1.0`, and attach the generated
+macOS / Windows installer files to each release.
