@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='app',
+    name='İzbul',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -39,7 +39,7 @@ exe = EXE(
 )
 app = BUNDLE(
     exe,
-    name='app.app',
+    name='İzbul.app',
     icon='icon.icns',
     bundle_identifier=None,
 )

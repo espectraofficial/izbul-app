@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$AppName = "Job Finder"
+$AppName = "İzbul"
 $env:PYINSTALLER_CONFIG_DIR = "$PWD\build\pyinstaller-cache"
 $IconPath = "$PWD\icon.ico"
 
@@ -33,8 +33,8 @@ $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 
 if ($iscc) {
   & $iscc.Source packaging\windows\job-finder.iss
-  Write-Host "Created release\windows\Job-Finder-Windows-Setup.exe"
+  Write-Host "Created release\windows\Izbul-Windows-Setup.exe"
 } else {
-  Compress-Archive -Path "dist\$AppName\*" -DestinationPath "release\windows\Job-Finder-Windows.zip" -Force
-  Write-Host "Inno Setup was not found. Created release\windows\Job-Finder-Windows.zip instead."
+  Compress-Archive -Path "dist\$AppName\*" -DestinationPath "release\windows\Izbul-Windows.zip" -Force
+  Write-Host "Inno Setup was not found. Created release\windows\Izbul-Windows.zip instead."
 }

@@ -26,7 +26,7 @@ jobs:
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Job-Finder-macOS
+          name: Izbul-macOS
           path: release/macos/*
 
   windows:
@@ -52,5 +52,5 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Job-Finder-Windows
-          path: release/windows/Job-Finder-Windows-Setup.exe
+          name: Izbul-Windows
+          path: release/windows/Izbul-Windows-Setup.exe

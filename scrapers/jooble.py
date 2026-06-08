@@ -14,10 +14,11 @@ from utils.job_parser import (
 
 
 DEFAULT_API_HOST = "tr.jooble.org"
-APP_NAME = "Job Finder"
+APP_NAME = "İzbul"
+LEGACY_APP_NAME = "Job Finder"
 
 
-def get_app_data_dir():
+def get_app_data_dir(app_name=APP_NAME):
 
     if os.sys.platform == "darwin":
 
@@ -25,7 +26,7 @@ def get_app_data_dir():
             Path.home()
             / "Library"
             / "Application Support"
-            / APP_NAME
+            / app_name
         )
 
     if os.sys.platform.startswith("win"):
@@ -34,18 +35,38 @@ def get_app_data_dir():
 
         if appdata:
 
-            return Path(appdata) / APP_NAME
+            return Path(appdata) / app_name
 
     return (
         Path.home()
         / ".config"
-        / APP_NAME
+        / app_name
     )
 
 
 def get_user_api_key_file():
 
-    return get_app_data_dir() / "jooble_api_key.txt"
+    current_file = get_app_data_dir(APP_NAME) / "jooble_api_key.txt"
+    legacy_file = get_app_data_dir(LEGACY_APP_NAME) / "jooble_api_key.txt"
+
+    if legacy_file.exists() and not current_file.exists():
+
+        current_file.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        try:
+
+            current_file.write_bytes(
+                legacy_file.read_bytes()
+            )
+
+        except Exception as e:
+
+            print("Eski Jooble API anahtarı taşınamadı:", e)
+
+    return current_file
 
 
 def get_jooble_api_key():

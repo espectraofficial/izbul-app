@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="Job Finder"
-DMG_NAME="Job-Finder-macOS.dmg"
+APP_NAME="İzbul"
+DMG_NAME="Izbul-macOS.dmg"
 PYINSTALLER_CONFIG_DIR="$PWD/build/pyinstaller-cache"
 ICON_PATH="$PWD/icon.icns"
 export PYINSTALLER_CONFIG_DIR
@@ -40,7 +40,7 @@ if hdiutil create \
 
 else
 
-  ZIP_NAME="Job-Finder-macOS.zip"
+  ZIP_NAME="Izbul-macOS.zip"
 
   ditto \
     -c \

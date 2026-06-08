@@ -30,7 +30,8 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 
-APP_NAME = "Job Finder"
+APP_NAME = "İzbul"
+LEGACY_APP_NAME = "Job Finder"
 
 DEFAULT_SETTINGS = {
     "default_city": "",
@@ -211,7 +212,7 @@ def get_theme_label(value):
     )
 
 
-def get_app_data_dir():
+def get_app_data_dir(app_name=APP_NAME):
 
     if sys.platform == "darwin":
 
@@ -219,7 +220,7 @@ def get_app_data_dir():
             Path.home()
             / "Library"
             / "Application Support"
-            / APP_NAME
+            / app_name
         )
 
     if sys.platform.startswith("win"):
@@ -228,16 +229,55 @@ def get_app_data_dir():
 
         if appdata:
 
-            return Path(appdata) / APP_NAME
+            return Path(appdata) / app_name
 
     return (
         Path.home()
         / ".config"
-        / APP_NAME
+        / app_name
     )
 
 
+def migrate_legacy_app_data():
+
+    current_dir = get_app_data_dir(APP_NAME)
+    legacy_dir = get_app_data_dir(LEGACY_APP_NAME)
+
+    if not legacy_dir.exists():
+
+        return
+
+    current_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    for file_name in [
+        "favorites.json",
+        "hidden_jobs.json",
+        "settings.json",
+        "jooble_api_key.txt"
+    ]:
+
+        source = legacy_dir / file_name
+        target = current_dir / file_name
+
+        if source.exists() and not target.exists():
+
+            try:
+
+                target.write_bytes(
+                    source.read_bytes()
+                )
+
+            except Exception as e:
+
+                print("Eski uygulama verisi taşınamadı:", e)
+
+
 def get_favorites_file():
+
+    migrate_legacy_app_data()
 
     app_data_dir = get_app_data_dir()
 
@@ -251,6 +291,8 @@ def get_favorites_file():
 
 def get_hidden_jobs_file():
 
+    migrate_legacy_app_data()
+
     app_data_dir = get_app_data_dir()
 
     app_data_dir.mkdir(
@@ -262,6 +304,8 @@ def get_hidden_jobs_file():
 
 
 def get_settings_file():
+
+    migrate_legacy_app_data()
 
     app_data_dir = get_app_data_dir()
 
@@ -385,7 +429,7 @@ class JobApp(ctk.CTk):
         # WINDOW
         # =========================
 
-        self.title("Job Finder")
+        self.title(APP_NAME)
 
         window_width = 1500
         window_height = 900
@@ -1482,11 +1526,13 @@ class JobApp(ctk.CTk):
             pady=(0, 8)
         )
 
-        self.source_progress_frame.pack(
-            fill="x",
-            padx=10,
-            pady=(0, 8)
-        )
+        if self.view_mode == "results":
+
+            self.source_progress_frame.pack(
+                fill="x",
+                padx=10,
+                pady=(0, 8)
+            )
 
         self.results_frame.pack(
             fill="both",
@@ -1537,7 +1583,7 @@ class JobApp(ctk.CTk):
 
             container,
 
-            text="🔍 Job Finder",
+            text="🔍 İzbul",
 
             font=(
                 "Arial",
@@ -1618,8 +1664,8 @@ class JobApp(ctk.CTk):
 
             status_card = ctk.CTkFrame(
                 status_frame,
-                width=205,
-                height=86,
+                width=210,
+                height=88,
                 corner_radius=14
             )
 
@@ -1629,6 +1675,7 @@ class JobApp(ctk.CTk):
             )
 
             status_card.pack_propagate(False)
+            status_card.grid_propagate(False)
             status_card.grid_rowconfigure(
                 0,
                 weight=1
@@ -1646,10 +1693,13 @@ class JobApp(ctk.CTk):
                 status_card,
                 text=label_text,
                 text_color="gray",
+                width=190,
                 font=(
                     "Arial",
                     12
-                )
+                ),
+                anchor="center",
+                justify="center"
             ).grid(
                 row=1,
                 column=0,
@@ -1659,11 +1709,14 @@ class JobApp(ctk.CTk):
             ctk.CTkLabel(
                 status_card,
                 text=value_text,
+                width=190,
                 font=(
                     "Arial",
                     14,
                     "bold"
-                )
+                ),
+                anchor="center",
+                justify="center"
             ).grid(
                 row=2,
                 column=0
@@ -1794,6 +1847,22 @@ class JobApp(ctk.CTk):
                     else keyword
                 )
 
+                has_saved_filters = any(
+                    [
+                        history_item.get("experiences"),
+                        history_item.get("remote"),
+                        history_item.get("sort_type") not in [
+                            "",
+                            "Varsayılan",
+                            None
+                        ]
+                    ]
+                )
+
+                if has_saved_filters:
+
+                    button_text = f"{button_text} · filtreli"
+
                 recent_button = ctk.CTkButton(
                     recent_frame,
                     text=button_text,
@@ -1802,10 +1871,9 @@ class JobApp(ctk.CTk):
                     corner_radius=10,
                     fg_color="#3A3A3A",
                     hover_color="#4A4A4A",
-                    command=lambda k=keyword, c=city:
+                    command=lambda item=history_item:
                     self.run_history_search(
-                        k,
-                        c
+                        item
                     )
                 )
 
@@ -1913,7 +1981,81 @@ class JobApp(ctk.CTk):
 
         self.start_search()
 
-    def run_history_search(self, keyword, city):
+    def run_history_search(self, history_item, city=None):
+
+        if isinstance(history_item, dict):
+
+            keyword = str(
+                history_item.get(
+                    "keyword",
+                    ""
+                )
+            ).strip()
+
+            city = str(
+                history_item.get(
+                    "city",
+                    ""
+                )
+            ).strip()
+
+            sources = history_item.get(
+                "sources",
+                None
+            )
+
+            experiences = history_item.get(
+                "experiences",
+                []
+            )
+
+            remote_models = history_item.get(
+                "remote",
+                []
+            )
+
+            sort_type = history_item.get(
+                "sort_type",
+                ""
+            )
+
+            if isinstance(sources, list):
+
+                for source, var in self.source_vars.items():
+
+                    var.set(
+                        source in sources
+                    )
+
+            if isinstance(experiences, list):
+
+                for exp, var in self.exp_vars.items():
+
+                    var.set(
+                        exp in experiences
+                    )
+
+            if isinstance(remote_models, list):
+
+                for remote, var in self.remote_vars.items():
+
+                    var.set(
+                        remote in remote_models
+                    )
+
+            if sort_type:
+
+                self.sort_var.set(sort_type)
+
+        else:
+
+            keyword = str(
+                history_item or ""
+            ).strip()
+
+            city = str(
+                city or ""
+            ).strip()
 
         self.keyword_entry.delete(
             0,
@@ -2418,19 +2560,47 @@ class JobApp(ctk.CTk):
                 "#27AE60"
             )
 
-        clear_hidden_button = ctk.CTkButton(
+        hidden_actions = ctk.CTkFrame(
             container,
-            text="Gizlenen İlanları Temizle",
+            fg_color="transparent"
+        )
+
+        hidden_actions.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 14)
+        )
+
+        show_hidden_button = ctk.CTkButton(
+            hidden_actions,
+            text="Gizlenenleri Görüntüle",
             height=38,
             fg_color="#3A3A3A",
             hover_color="#4A4A4A",
+            command=self.show_hidden_jobs_window
+        )
+
+        show_hidden_button.pack(
+            side="left",
+            fill="x",
+            expand=True,
+            padx=(0, 8)
+        )
+
+        clear_hidden_button = ctk.CTkButton(
+            hidden_actions,
+            text="Temizle",
+            height=38,
+            fg_color="#5A2F2F",
+            hover_color="#744040",
             command=clear_hidden_from_settings
         )
 
         clear_hidden_button.pack(
+            side="left",
             fill="x",
-            padx=22,
-            pady=(0, 14)
+            expand=True,
+            padx=(8, 0)
         )
 
         data_path_label = ctk.CTkLabel(
@@ -2452,6 +2622,51 @@ class JobApp(ctk.CTk):
             fill="x",
             padx=22,
             pady=(0, 12)
+        )
+
+        ownership_frame = ctk.CTkFrame(
+            container,
+            corner_radius=14
+        )
+
+        ownership_frame.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 16)
+        )
+
+        ctk.CTkLabel(
+            ownership_frame,
+            text="Yapımcı ve Haklar",
+            font=(
+                "Arial",
+                14,
+                "bold"
+            ),
+            anchor="w"
+        ).pack(
+            fill="x",
+            padx=16,
+            pady=(14, 4)
+        )
+
+        ctk.CTkLabel(
+            ownership_frame,
+            text=(
+                "Yapımcı: Ümit Ege Güldez\n"
+                "© 2026 Ümit Ege Güldez. Tüm hakları saklıdır."
+            ),
+            text_color="#D8D8D8",
+            font=(
+                "Arial",
+                13
+            ),
+            anchor="w",
+            justify="left"
+        ).pack(
+            fill="x",
+            padx=16,
+            pady=(0, 14)
         )
 
         def save_settings_from_window():
@@ -2695,7 +2910,7 @@ class JobApp(ctk.CTk):
 
         return None
 
-    def update_search_history(self, keyword, city):
+    def update_search_history(self, keyword, city, selected_sources=None):
 
         keyword = str(
             keyword or ""
@@ -2723,6 +2938,24 @@ class JobApp(ctk.CTk):
             normalize_text(city)
         )
 
+        selected_sources = (
+            selected_sources
+            if isinstance(selected_sources, list)
+            else self.get_selected_sources()
+        )
+
+        selected_experiences = [
+            exp
+            for exp, var in self.exp_vars.items()
+            if var.get()
+        ]
+
+        selected_remote = [
+            remote
+            for remote, var in self.remote_vars.items()
+            if var.get()
+        ]
+
         next_history = [
             item
             for item in current_history
@@ -2746,7 +2979,11 @@ class JobApp(ctk.CTk):
             0,
             {
                 "keyword": keyword,
-                "city": city
+                "city": city,
+                "sources": selected_sources,
+                "experiences": selected_experiences,
+                "remote": selected_remote,
+                "sort_type": self.sort_var.get()
             }
         )
 
@@ -2786,7 +3023,8 @@ class JobApp(ctk.CTk):
 
         self.update_search_history(
             keyword,
-            selected_city
+            selected_city,
+            selected_sources
         )
 
         self.save_search_preferences()
@@ -3475,6 +3713,256 @@ class JobApp(ctk.CTk):
             "#27AE60"
         )
 
+    def restore_hidden_job(self, hidden_job, window=None):
+
+        job_url = str(
+            hidden_job.get(
+                "url",
+                ""
+            )
+        )
+
+        self.hidden_jobs = [
+            item
+            for item in self.hidden_jobs
+            if item.get("url") != job_url
+        ]
+
+        self.save_hidden_jobs()
+        self.apply_filters()
+
+        self.show_toast(
+            "İlan tekrar görünür yapıldı.",
+            "#27AE60"
+        )
+
+        if window and window.winfo_exists():
+
+            window.destroy()
+            self.show_hidden_jobs_window()
+
+    def show_hidden_jobs_window(self):
+
+        hidden_window = ctk.CTkToplevel(self)
+
+        hidden_window.title("Gizlenen İlanlar")
+
+        hidden_window.geometry("680x520")
+
+        hidden_window.minsize(560, 420)
+
+        hidden_window.transient(self)
+
+        hidden_window.focus()
+
+        container = ctk.CTkScrollableFrame(
+            hidden_window,
+            corner_radius=18
+        )
+
+        container.pack(
+            fill="both",
+            expand=True,
+            padx=18,
+            pady=18
+        )
+
+        header = ctk.CTkFrame(
+            container,
+            fg_color="transparent"
+        )
+
+        header.pack(
+            fill="x",
+            padx=16,
+            pady=(16, 12)
+        )
+
+        ctk.CTkLabel(
+            header,
+            text="Gizlenen İlanlar",
+            font=(
+                "Arial",
+                24,
+                "bold"
+            )
+        ).pack(
+            side="left"
+        )
+
+        if self.hidden_jobs:
+
+            clear_button = ctk.CTkButton(
+                header,
+                text="Tümünü Temizle",
+                width=130,
+                height=34,
+                corner_radius=10,
+                fg_color="#5A2F2F",
+                hover_color="#744040",
+                command=lambda:
+                (
+                    self.clear_hidden_jobs(),
+                    hidden_window.destroy()
+                )
+            )
+
+            clear_button.pack(
+                side="right"
+            )
+
+        if not self.hidden_jobs:
+
+            ctk.CTkLabel(
+                container,
+                text="Gizlenen ilan yok.",
+                font=(
+                    "Arial",
+                    20,
+                    "bold"
+                )
+            ).pack(
+                pady=(80, 8)
+            )
+
+            ctk.CTkLabel(
+                container,
+                text="Arama sonuçlarında Gizle butonunu kullanınca ilanlar burada listelenir.",
+                text_color="gray",
+                font=(
+                    "Arial",
+                    14
+                ),
+                wraplength=480,
+                justify="center"
+            ).pack()
+
+            return
+
+        for hidden_job in self.hidden_jobs:
+
+            card = ctk.CTkFrame(
+                container,
+                corner_radius=14
+            )
+
+            card.pack(
+                fill="x",
+                padx=16,
+                pady=8
+            )
+
+            info_frame = ctk.CTkFrame(
+                card,
+                fg_color="transparent"
+            )
+
+            info_frame.pack(
+                side="left",
+                fill="x",
+                expand=True,
+                padx=16,
+                pady=14
+            )
+
+            ctk.CTkLabel(
+                info_frame,
+                text=hidden_job.get(
+                    "title",
+                    "Başlıksız ilan"
+                ),
+                font=(
+                    "Arial",
+                    16,
+                    "bold"
+                ),
+                anchor="w",
+                justify="left",
+                wraplength=360
+            ).pack(
+                fill="x",
+                anchor="w"
+            )
+
+            details = " · ".join(
+                value
+                for value in [
+                    hidden_job.get(
+                        "company",
+                        ""
+                    ),
+                    hidden_job.get(
+                        "site",
+                        ""
+                    ),
+                    format_saved_at(
+                        hidden_job.get(
+                            "hidden_at",
+                            ""
+                        )
+                    )
+                ]
+                if value
+            )
+
+            ctk.CTkLabel(
+                info_frame,
+                text=details,
+                text_color="gray",
+                font=(
+                    "Arial",
+                    13
+                ),
+                anchor="w",
+                justify="left",
+                wraplength=360
+            ).pack(
+                fill="x",
+                anchor="w",
+                pady=(6, 0)
+            )
+
+            action_frame = ctk.CTkFrame(
+                card,
+                fg_color="transparent"
+            )
+
+            action_frame.pack(
+                side="right",
+                padx=14,
+                pady=14
+            )
+
+            ctk.CTkButton(
+                action_frame,
+                text="Geri Al",
+                width=90,
+                height=34,
+                corner_radius=10,
+                command=lambda item=hidden_job:
+                self.restore_hidden_job(
+                    item,
+                    hidden_window
+                )
+            ).pack(
+                side="left",
+                padx=(0, 8)
+            )
+
+            ctk.CTkButton(
+                action_frame,
+                text="Aç",
+                width=70,
+                height=34,
+                corner_radius=10,
+                fg_color="#2E8B57",
+                hover_color="#247348",
+                command=lambda url=hidden_job.get("url", ""):
+                webbrowser.open(url)
+            ).pack(
+                side="left"
+            )
+
     # =========================
     # FAVORITES
     # =========================
@@ -3702,7 +4190,7 @@ class JobApp(ctk.CTk):
                     "*.csv"
                 )
             ],
-            initialfile="job-finder-favoriler.csv"
+            initialfile="izbul-favoriler.csv"
         )
 
         if not file_path:
@@ -5321,6 +5809,167 @@ class JobApp(ctk.CTk):
                     padx=(0, 10)
                 )
 
+    def render_favorites_dashboard(self):
+
+        if self.view_mode != "favorites":
+
+            return
+
+        status_counts = {
+            status: 0
+            for status in APPLICATION_STATUSES
+        }
+
+        notes_count = 0
+
+        for favorite in self.favorite_jobs:
+
+            status = favorite.get(
+                "application_status",
+                "Kaydedildi"
+            )
+
+            if status in status_counts:
+
+                status_counts[status] += 1
+
+            if str(
+                favorite.get(
+                    "application_note",
+                    ""
+                )
+            ).strip():
+
+                notes_count += 1
+
+        active_count = (
+            status_counts.get(
+                "Başvuruldu",
+                0
+            ) +
+            status_counts.get(
+                "Görüşme",
+                0
+            ) +
+            status_counts.get(
+                "Teklif",
+                0
+            )
+        )
+
+        dashboard_items = [
+            (
+                "Toplam",
+                len(self.favorite_jobs),
+                "#3A3A3A"
+            ),
+            (
+                "Aktif Süreç",
+                active_count,
+                "#1F6AA5"
+            ),
+            (
+                "Görüşme",
+                status_counts.get(
+                    "Görüşme",
+                    0
+                ),
+                "#8E5A00"
+            ),
+            (
+                "Teklif",
+                status_counts.get(
+                    "Teklif",
+                    0
+                ),
+                "#2E8B57"
+            ),
+            (
+                "Notlu",
+                notes_count,
+                "#5A4A7A"
+            )
+        ]
+
+        dashboard = ctk.CTkFrame(
+            self.results_frame,
+            corner_radius=16
+        )
+
+        dashboard.pack(
+            fill="x",
+            padx=10,
+            pady=(0, 8)
+        )
+
+        for index in range(len(dashboard_items)):
+
+            dashboard.grid_columnconfigure(
+                index,
+                weight=1,
+                uniform="favorites_dashboard"
+            )
+
+        for index, (label_text, value, color) in enumerate(dashboard_items):
+
+            card = ctk.CTkFrame(
+                dashboard,
+                fg_color=color,
+                corner_radius=12,
+                height=56
+            )
+
+            card.grid(
+                row=0,
+                column=index,
+                sticky="ew",
+                padx=5,
+                pady=8
+            )
+
+            card.grid_propagate(False)
+            card.grid_rowconfigure(
+                0,
+                weight=1
+            )
+            card.grid_rowconfigure(
+                3,
+                weight=1
+            )
+            card.grid_columnconfigure(
+                0,
+                weight=1
+            )
+
+            ctk.CTkLabel(
+                card,
+                text=label_text,
+                text_color="#D8D8D8",
+                font=(
+                    "Arial",
+                    11,
+                    "bold"
+                )
+            ).grid(
+                row=1,
+                column=0,
+                pady=(0, 1)
+            )
+
+            ctk.CTkLabel(
+                card,
+                text=str(value),
+                text_color="white",
+                font=(
+                    "Arial",
+                    18,
+                    "bold"
+                )
+            ).grid(
+                row=2,
+                column=0
+            )
+
     def scroll_results_to_top(self):
 
         try:
@@ -5386,6 +6035,7 @@ class JobApp(ctk.CTk):
         ]
 
         self.render_list_header()
+        self.render_favorites_dashboard()
 
         if not jobs:
 

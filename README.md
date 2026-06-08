@@ -1,13 +1,24 @@
-# Job Finder
+# İzbul
 
-Job Finder is a desktop job search app built with Python and CustomTkinter.
+İzbul is a desktop job search app built with Python and CustomTkinter.
 
 The app searches job listings, displays them in a single interface, supports filters, pagination, favorites, and external LinkedIn job search links.
+
+## Ownership
+
+İzbul was created by **Ümit Ege Güldez**.
+
+© 2026 Ümit Ege Güldez. Tüm hakları saklıdır.
+
+Bu projenin kaynak kodu, tasarımı, uygulama adı ve dağıtım paketleri Ümit Ege Güldez'e aittir. Yazılı izin olmadan kopyalanamaz, değiştirilemez, yeniden dağıtılamaz, satılamaz veya başka bir kişi/kurum tarafından sahiplenilemez.
+
+All rights reserved. No part of this project may be copied, modified, redistributed, sold, sublicensed, or claimed as another person's or organization's work without prior written permission from Ümit Ege Güldez.
 
 ## Current Sources
 
 - Kariyer.net
 - Jooble, when a Jooble API key is provided
+- Eleman.net
 - LinkedIn Jobs external search link
 
 ## Setup
@@ -66,8 +77,8 @@ Build outputs are created under `dist/`.
 
 Distribution outputs:
 
-- macOS: `release/macos/Job-Finder-macOS.dmg`
-- macOS fallback: `release/macos/Job-Finder-macOS.zip`
-- Windows: `release/windows/Job-Finder-Windows-Setup.exe`
+- macOS: `release/macos/Izbul-macOS.dmg`
+- macOS fallback: `release/macos/Izbul-macOS.zip`
+- Windows: `release/windows/Izbul-Windows-Setup.exe`
 
 GitHub Actions can build both installers from the **Build Installers** workflow. Run it manually from the Actions tab, then download the generated artifacts.
