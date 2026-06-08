@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$AppName = "İzbul"
+$AppName = "Izbul"
 $env:PYINSTALLER_CONFIG_DIR = "$PWD\build\pyinstaller-cache"
 $IconPath = "$PWD\icon.ico"
 

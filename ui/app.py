@@ -33,7 +33,7 @@ ctk.set_default_color_theme("blue")
 APP_NAME = "İzbul"
 APP_VERSION = "1.0.0"
 LEGACY_APP_NAME = "Job Finder"
-GITHUB_REPO = "espectraofficial/job-finder-app"
+GITHUB_REPO = "espectraofficial/izbul-app"
 GITHUB_RELEASES_API = (
     f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 )

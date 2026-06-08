@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="İzbul"
+APP_NAME="Izbul"
+DISPLAY_NAME="İzbul"
+APP_VERSION="1.0.0"
 DMG_NAME="Izbul-macOS.dmg"
 PYINSTALLER_CONFIG_DIR="$PWD/build/pyinstaller-cache"
 ICON_PATH="$PWD/icon.icns"
@@ -28,10 +30,26 @@ pyinstaller \
   --distpath dist \
   ui/app.py
 
+/usr/libexec/PlistBuddy \
+  -c "Set :CFBundleDisplayName $DISPLAY_NAME" \
+  -c "Set :CFBundleName $DISPLAY_NAME" \
+  -c "Set :CFBundleShortVersionString $APP_VERSION" \
+  -c "Add :CFBundleVersion string $APP_VERSION" \
+  "dist/$APP_NAME.app/Contents/Info.plist" 2>/dev/null || \
+/usr/libexec/PlistBuddy \
+  -c "Set :CFBundleDisplayName $DISPLAY_NAME" \
+  -c "Set :CFBundleName $DISPLAY_NAME" \
+  -c "Set :CFBundleShortVersionString $APP_VERSION" \
+  -c "Set :CFBundleVersion $APP_VERSION" \
+  "dist/$APP_NAME.app/Contents/Info.plist"
+
+xattr -cr "dist/$APP_NAME.app" 2>/dev/null || true
+codesign --force --deep --sign - "dist/$APP_NAME.app" 2>/dev/null || true
+
 mkdir -p release/macos
 
 if hdiutil create \
-    -volname "$APP_NAME" \
+    -volname "$DISPLAY_NAME" \
     -srcfolder "dist/$APP_NAME.app" \
     -ov \
     -format UDZO \

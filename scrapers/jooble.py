@@ -244,7 +244,7 @@ def search_jooble(
             headers={
                 "Content-Type": "application/json",
                 "Accept": "application/json",
-                "User-Agent": "JobFinderApp/1.0"
+                "User-Agent": "Izbul/1.0"
             },
             timeout=10
         )

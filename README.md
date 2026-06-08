@@ -66,6 +66,7 @@ The project is packaged separately on macOS and Windows. Use the generated files
 - Version: `1.0.0`
 - Creator / Publisher: `Ümit Ege Güldez`
 - macOS bundle identifier: `com.umitegeguldez.izbul`
+- Technical bundle / executable name: `Izbul`
 
 - macOS builds should be created on macOS.
 - Windows builds should be created on Windows.

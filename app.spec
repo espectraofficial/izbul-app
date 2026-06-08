@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='İzbul',
+    name='Izbul',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -39,7 +39,13 @@ exe = EXE(
 )
 app = BUNDLE(
     exe,
-    name='İzbul.app',
+    name='Izbul.app',
     icon='icon.icns',
     bundle_identifier='com.umitegeguldez.izbul',
+    info_plist={
+        'CFBundleDisplayName': 'İzbul',
+        'CFBundleName': 'İzbul',
+        'CFBundleShortVersionString': '1.0.0',
+        'CFBundleVersion': '1.0.0',
+    },
 )

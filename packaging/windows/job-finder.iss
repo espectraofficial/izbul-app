@@ -1,8 +1,8 @@
 #define MyAppName "İzbul"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "Ümit Ege Güldez"
-#define MyAppExeName "İzbul.exe"
-#define SourceDir "..\..\dist\İzbul"
+#define MyAppExeName "Izbul.exe"
+#define SourceDir "..\..\dist\Izbul"
 
 [Setup]
 AppId={{9A8C09EF-5BF8-4A52-A7AB-5A3B0C4C5F39}
