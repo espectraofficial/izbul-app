@@ -77,6 +77,34 @@ macOS:
 bash scripts/build_macos.sh
 ```
 
+macOS signing and notarization:
+
+For local test builds, the script falls back to ad-hoc signing when a
+Developer ID certificate is not installed.
+
+For public distribution outside the Mac App Store, install a
+`Developer ID Application` certificate in Keychain Access, then store
+notary credentials once:
+
+```bash
+xcrun notarytool store-credentials "izbul-notary"
+```
+
+Then build with notarization enabled:
+
+```bash
+export MACOS_NOTARY_PROFILE="izbul-notary"
+bash scripts/build_macos.sh
+```
+
+If multiple Developer ID certificates exist, choose one explicitly:
+
+```bash
+export MACOS_CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+export MACOS_NOTARY_PROFILE="izbul-notary"
+bash scripts/build_macos.sh
+```
+
 Windows PowerShell:
 
 ```powershell

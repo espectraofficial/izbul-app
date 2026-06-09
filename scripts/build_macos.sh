@@ -9,7 +9,78 @@ DMG_NAME="Izbul-macOS.dmg"
 DMG_RW_NAME="Izbul-macOS-rw.dmg"
 PYINSTALLER_CONFIG_DIR="$PWD/build/pyinstaller-cache"
 ICON_PATH="$PWD/icon.icns"
+ENTITLEMENTS_PATH="$PWD/packaging/macos/entitlements.plist"
+MACOS_CODESIGN_IDENTITY="${MACOS_CODESIGN_IDENTITY:-}"
+MACOS_NOTARY_PROFILE="${MACOS_NOTARY_PROFILE:-}"
 export PYINSTALLER_CONFIG_DIR
+
+detect_codesign_identity() {
+  if [ -n "$MACOS_CODESIGN_IDENTITY" ]; then
+    return
+  fi
+
+  MACOS_CODESIGN_IDENTITY=$(
+    security find-identity -v -p codesigning |
+    awk -F '"' '/Developer ID Application/ {print $2; exit}'
+  )
+}
+
+sign_app_bundle() {
+  detect_codesign_identity
+
+  if [ -n "$MACOS_CODESIGN_IDENTITY" ]; then
+    echo "Signing with Developer ID identity: $MACOS_CODESIGN_IDENTITY"
+
+    codesign \
+      --force \
+      --deep \
+      --timestamp \
+      --options runtime \
+      --entitlements "$ENTITLEMENTS_PATH" \
+      --sign "$MACOS_CODESIGN_IDENTITY" \
+      "dist/$APP_NAME.app"
+  else
+    echo "Developer ID certificate was not found. Using ad-hoc signing."
+
+    codesign \
+      --force \
+      --deep \
+      --sign - \
+      "dist/$APP_NAME.app"
+  fi
+
+  codesign \
+    --verify \
+    --deep \
+    --strict \
+    --verbose=2 \
+    "dist/$APP_NAME.app"
+}
+
+notarize_dmg_if_configured() {
+  if [ -z "$MACOS_NOTARY_PROFILE" ]; then
+    echo "Notarization skipped. Set MACOS_NOTARY_PROFILE to enable it."
+    return
+  fi
+
+  if [ -z "$MACOS_CODESIGN_IDENTITY" ]; then
+    echo "Notarization skipped because no Developer ID certificate was found."
+    return
+  fi
+
+  echo "Submitting DMG for notarization with profile: $MACOS_NOTARY_PROFILE"
+
+  xcrun notarytool submit \
+    "release/macos/$DMG_NAME" \
+    --keychain-profile "$MACOS_NOTARY_PROFILE" \
+    --wait
+
+  xcrun stapler staple \
+    "release/macos/$DMG_NAME"
+
+  xcrun stapler validate \
+    "release/macos/$DMG_NAME"
+}
 
 python3 -m venv venv
 source venv/bin/activate
@@ -46,7 +117,7 @@ pyinstaller \
   "dist/$APP_NAME.app/Contents/Info.plist"
 
 xattr -cr "dist/$APP_NAME.app" 2>/dev/null || true
-codesign --force --deep --sign - "dist/$APP_NAME.app" 2>/dev/null || true
+sign_app_bundle
 
 mkdir -p release/macos
 rm -rf build/dmg
@@ -193,6 +264,7 @@ fi
 if [ "$DMG_CREATED" = true ]; then
 
   echo "Created release/macos/$DMG_NAME"
+  notarize_dmg_if_configured
 
 else
 
@@ -209,5 +281,9 @@ else
 
     echo "DMG creation failed. Created release/macos/$ZIP_NAME instead."
   }
+
+  if [ -f "release/macos/$DMG_NAME" ]; then
+    notarize_dmg_if_configured
+  fi
 
 fi

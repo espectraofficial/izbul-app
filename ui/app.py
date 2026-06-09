@@ -1640,7 +1640,7 @@ class JobApp(ctk.CTk):
         )
 
         title.pack(
-            pady=(60, 15)
+            pady=(24, 8)
         )
 
         active_sources = [
@@ -1661,9 +1661,7 @@ class JobApp(ctk.CTk):
 
             text=(
                 "Kariyer.net, Jooble ve Eleman.net ilanlarını\n"
-                "tek ekranda arayın, filtreleyin ve favorileyin.\n"
-                "\n"
-                "Sık yapılan aramalar:"
+                "tek ekranda arayın, filtreleyin ve favorileyin."
 
             ),
 
@@ -1671,12 +1669,12 @@ class JobApp(ctk.CTk):
 
             font=(
                 "Arial",
-                20
+                18
             )
         )
 
         subtitle.pack(
-            pady=(0, 26)
+            pady=(0, 16)
         )
 
         status_frame = ctk.CTkFrame(
@@ -1685,7 +1683,9 @@ class JobApp(ctk.CTk):
         )
 
         status_frame.pack(
-            pady=(0, 28)
+            fill="x",
+            padx=70,
+            pady=(0, 18)
         )
 
         status_items = [
@@ -1707,18 +1707,25 @@ class JobApp(ctk.CTk):
             )
         ]
 
-        for label_text, value_text in status_items:
+        for index, (label_text, value_text) in enumerate(status_items):
+
+            status_frame.grid_columnconfigure(
+                index,
+                weight=1,
+                uniform="home_status"
+            )
 
             status_card = ctk.CTkFrame(
                 status_frame,
-                width=210,
-                height=88,
+                height=70,
                 corner_radius=14
             )
 
-            status_card.pack(
-                side="left",
-                padx=7
+            status_card.grid(
+                row=0,
+                column=index,
+                sticky="ew",
+                padx=6
             )
 
             status_card.pack_propagate(False)
@@ -1740,7 +1747,6 @@ class JobApp(ctk.CTk):
                 status_card,
                 text=label_text,
                 text_color="gray",
-                width=190,
                 font=(
                     "Arial",
                     12
@@ -1756,7 +1762,6 @@ class JobApp(ctk.CTk):
             ctk.CTkLabel(
                 status_card,
                 text=value_text,
-                width=190,
                 font=(
                     "Arial",
                     14,
@@ -1781,7 +1786,7 @@ class JobApp(ctk.CTk):
             )
 
             setup_button.pack(
-                pady=(0, 24)
+                pady=(0, 16)
             )
         else:
 
@@ -1790,8 +1795,23 @@ class JobApp(ctk.CTk):
                 text="",
                 height=1
             ).pack(
-                pady=(0, 10)
+                pady=(0, 4)
             )
+
+        frequent_label = ctk.CTkLabel(
+            container,
+            text="Sık yapılan aramalar:",
+            text_color="#D8DEE9",
+            font=(
+                "Arial",
+                15,
+                "bold"
+            )
+        )
+
+        frequent_label.pack(
+            pady=(0, 8)
+        )
 
         quick_frame = ctk.CTkFrame(
             container,
@@ -1799,7 +1819,9 @@ class JobApp(ctk.CTk):
         )
 
         quick_frame.pack(
-            pady=(0, 20)
+            fill="x",
+            padx=120,
+            pady=(0, 16)
         )
 
         quick_jobs = [
@@ -1810,7 +1832,13 @@ class JobApp(ctk.CTk):
             "Mimar"
         ]
 
-        for job in quick_jobs:
+        for index, job in enumerate(quick_jobs):
+
+            quick_frame.grid_columnconfigure(
+                index,
+                weight=1,
+                uniform="quick_search"
+            )
 
             btn = ctk.CTkButton(
 
@@ -1818,9 +1846,7 @@ class JobApp(ctk.CTk):
 
                 text=job,
 
-                width=180,
-
-                height=46,
+                height=42,
 
                 corner_radius=12,
 
@@ -1828,9 +1854,11 @@ class JobApp(ctk.CTk):
                 self.quick_search(j)
             )
 
-            btn.pack(
-                side="left",
-                padx=10
+            btn.grid(
+                row=0,
+                column=index,
+                sticky="ew",
+                padx=7
             )
 
         search_history = self.settings.get(
@@ -1852,7 +1880,7 @@ class JobApp(ctk.CTk):
             )
 
             recent_label.pack(
-                pady=(0, 8)
+                pady=(0, 6)
             )
 
             recent_frame = ctk.CTkFrame(
@@ -1861,8 +1889,12 @@ class JobApp(ctk.CTk):
             )
 
             recent_frame.pack(
-                pady=(0, 28)
+                fill="x",
+                padx=140,
+                pady=(0, 18)
             )
+
+            recent_index = 0
 
             for history_item in search_history[:4]:
 
@@ -1887,6 +1919,12 @@ class JobApp(ctk.CTk):
                 if not keyword:
 
                     continue
+
+                recent_frame.grid_columnconfigure(
+                    recent_index,
+                    weight=1,
+                    uniform="recent_search"
+                )
 
                 button_text = (
                     f"{keyword} · {city}"
@@ -1913,8 +1951,7 @@ class JobApp(ctk.CTk):
                 recent_button = ctk.CTkButton(
                     recent_frame,
                     text=button_text,
-                    width=170,
-                    height=34,
+                    height=32,
                     corner_radius=10,
                     fg_color="#3A3A3A",
                     hover_color="#4A4A4A",
@@ -1924,10 +1961,14 @@ class JobApp(ctk.CTk):
                     )
                 )
 
-                recent_button.pack(
-                    side="left",
+                recent_button.grid(
+                    row=0,
+                    column=recent_index,
+                    sticky="ew",
                     padx=6
                 )
+
+                recent_index += 1
 
         features_frame = ctk.CTkFrame(
             container,
@@ -1935,7 +1976,9 @@ class JobApp(ctk.CTk):
         )
 
         features_frame.pack(
-            pady=10
+            fill="x",
+            padx=60,
+            pady=(4, 16)
         )
 
         features = [
@@ -1961,21 +2004,35 @@ class JobApp(ctk.CTk):
             )
         ]
 
-        for title_text, desc in features:
+        for index in range(len(features)):
+
+            features_frame.grid_columnconfigure(
+                index,
+                weight=1,
+                uniform="home_features"
+            )
+
+        for index, (title_text, desc) in enumerate(features):
 
             card = ctk.CTkFrame(
                 features_frame,
-                width=220,
-                height=150,
-                corner_radius=18
+                height=118,
+                corner_radius=16
             )
 
-            card.pack(
-                side="left",
-                padx=10
+            card.grid(
+                row=0,
+                column=index,
+                sticky="nsew",
+                padx=8
             )
 
             card.pack_propagate(False)
+            card.grid_propagate(False)
+            card.grid_columnconfigure(
+                0,
+                weight=1
+            )
 
             title_label = ctk.CTkLabel(
 
@@ -1985,13 +2042,19 @@ class JobApp(ctk.CTk):
 
                 font=(
                     "Arial",
-                    18,
+                    17,
                     "bold"
-                )
+                ),
+                anchor="center",
+                justify="center"
             )
 
-            title_label.pack(
-                pady=(28, 12)
+            title_label.grid(
+                row=0,
+                column=0,
+                sticky="ew",
+                padx=10,
+                pady=(18, 8)
             )
 
             desc_label = ctk.CTkLabel(
@@ -2000,18 +2063,22 @@ class JobApp(ctk.CTk):
 
                 text=desc,
 
-                wraplength=185,
+                wraplength=180,
 
                 justify="center",
 
                 font=(
                     "Arial",
-                    14
-                )
+                    13
+                ),
+                anchor="center"
             )
 
-            desc_label.pack(
-                padx=15
+            desc_label.grid(
+                row=1,
+                column=0,
+                sticky="n",
+                padx=12
             )
 
     def quick_search(self, keyword):
