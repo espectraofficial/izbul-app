@@ -5,6 +5,10 @@ __pycache__/
 .DS_Store
 .vscode/
 
+.env
+.env.*
+!.env.example
+
 venv/
 .venv/
 
@@ -18,5 +22,14 @@ browser_profile/
 jobs.db
 favorites.json
 jooble_api_key.txt
+*.sqlite
+*.sqlite3
+*.db
 
 *.log
+
+*.pem
+*.p12
+*.cer
+*.key
+*.mobileprovision
