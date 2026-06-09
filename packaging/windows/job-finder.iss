@@ -1,5 +1,5 @@
 #define MyAppName "İzbul"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "Ümit Ege Güldez"
 #define MyAppExeName "Izbul.exe"
 #define SourceDir "..\..\dist\Izbul"

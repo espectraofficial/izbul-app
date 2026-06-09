@@ -32,7 +32,7 @@ ctk.set_default_color_theme("blue")
 
 
 APP_NAME = "İzbul"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 LEGACY_APP_NAME = "Job Finder"
 GITHUB_REPO = "espectraofficial/izbul-app"
 GITHUB_RELEASES_API = (
@@ -471,11 +471,23 @@ class JobApp(ctk.CTk):
 
         self.title(APP_NAME)
 
-        window_width = 1500
-        window_height = 900
-
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
+
+        window_width = min(
+            1500,
+            max(
+                1300,
+                int(screen_width * 0.92)
+            )
+        )
+        window_height = min(
+            900,
+            max(
+                750,
+                int((screen_height - 80) * 0.92)
+            )
+        )
 
         x = int((screen_width - window_width) / 2)
         y = int(((screen_height - window_height) / 2) - 60)
@@ -1439,6 +1451,11 @@ class JobApp(ctk.CTk):
         self.show_welcome_screen()
 
         self.after(
+            800,
+            self.show_install_cleanup_prompt
+        )
+
+        self.after(
             1200,
             lambda:
             self.check_for_updates(silent=True)
@@ -1447,6 +1464,209 @@ class JobApp(ctk.CTk):
     # =========================
     # BACK
     # =========================
+
+    def get_running_app_path(self):
+
+        if getattr(
+            sys,
+            "frozen",
+            False
+        ):
+
+            return Path(
+                sys.executable
+            ).resolve()
+
+        return Path(
+            __file__
+        ).resolve()
+
+    def is_running_from_applications(self):
+
+        if sys.platform != "darwin":
+
+            return False
+
+        app_path = str(
+            self.get_running_app_path()
+        )
+
+        return (
+            "/Applications/Izbul.app/" in app_path or
+            "/Applications/İzbul.app/" in app_path or
+            "/Applications/Izbul.app" in app_path or
+            "/Applications/İzbul.app" in app_path
+        )
+
+    def get_mounted_dmg_volume(self):
+
+        volume = Path("/Volumes/Izbul")
+
+        if volume.exists():
+
+            return volume
+
+        return None
+
+    def show_install_cleanup_prompt(self):
+
+        if sys.platform != "darwin":
+
+            return
+
+        if self.settings.get("install_cleanup_prompt_seen"):
+
+            return
+
+        if not self.is_running_from_applications():
+
+            return
+
+        volume = self.get_mounted_dmg_volume()
+
+        if not volume:
+
+            return
+
+        cleanup_window = ctk.CTkToplevel(self)
+        cleanup_window.title("Kurulum Tamamlandı")
+        cleanup_window.geometry("430x230")
+        cleanup_window.resizable(False, False)
+        cleanup_window.transient(self)
+        cleanup_window.focus_force()
+
+        container = ctk.CTkFrame(
+            cleanup_window,
+            corner_radius=18
+        )
+
+        container.pack(
+            fill="both",
+            expand=True,
+            padx=16,
+            pady=16
+        )
+
+        ctk.CTkLabel(
+            container,
+            text="Kurulum tamamlandı",
+            font=(
+                "Arial",
+                21,
+                "bold"
+            )
+        ).pack(
+            pady=(18, 8)
+        )
+
+        ctk.CTkLabel(
+            container,
+            text=(
+                "İzbul Applications klasöründen çalışıyor.\n"
+                "Artık kurulum disk imajını çıkarmak ister misiniz?"
+            ),
+            justify="center",
+            text_color="#D8DEE9",
+            font=(
+                "Arial",
+                14
+            )
+        ).pack(
+            padx=24,
+            pady=(0, 18)
+        )
+
+        actions = ctk.CTkFrame(
+            container,
+            fg_color="transparent"
+        )
+
+        actions.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 18)
+        )
+
+        def mark_seen():
+
+            self.settings["install_cleanup_prompt_seen"] = True
+            save_settings(
+                self.settings
+            )
+
+        def close_prompt():
+
+            mark_seen()
+            cleanup_window.destroy()
+
+        def eject_volume():
+
+            mark_seen()
+
+            try:
+
+                subprocess.Popen(
+                    [
+                        "hdiutil",
+                        "detach",
+                        str(volume)
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+
+                self.show_toast(
+                    "Kurulum disk imajı çıkarılıyor.",
+                    "#27AE60"
+                )
+
+            except Exception as e:
+
+                print("Disk imajı çıkarılamadı:", e)
+
+                self.show_toast(
+                    "Disk imajı çıkarılamadı.",
+                    "#C0392B"
+                )
+
+            cleanup_window.destroy()
+
+        cleanup_window.protocol(
+            "WM_DELETE_WINDOW",
+            close_prompt
+        )
+
+        later_button = ctk.CTkButton(
+            actions,
+            text="Daha Sonra",
+            height=40,
+            fg_color="#3A3A3A",
+            hover_color="#4A4A4A",
+            command=close_prompt
+        )
+
+        later_button.pack(
+            side="left",
+            fill="x",
+            expand=True,
+            padx=(0, 8)
+        )
+
+        eject_button = ctk.CTkButton(
+            actions,
+            text="Disk İmajını Çıkar",
+            height=40,
+            fg_color="#2E8B57",
+            hover_color="#247348",
+            command=eject_volume
+        )
+
+        eject_button.pack(
+            side="left",
+            fill="x",
+            expand=True,
+            padx=(8, 0)
+        )
 
     def go_back(self):
 
@@ -1624,8 +1844,8 @@ class JobApp(ctk.CTk):
         container.pack(
             fill="both",
             expand=True,
-            padx=20,
-            pady=20
+            padx=16,
+            pady=16
         )
 
         title = ctk.CTkLabel(
@@ -1642,7 +1862,7 @@ class JobApp(ctk.CTk):
         )
 
         title.pack(
-            pady=(24, 8)
+            pady=(18, 8)
         )
 
         active_sources = [
@@ -1685,9 +1905,8 @@ class JobApp(ctk.CTk):
         )
 
         status_frame.pack(
-            fill="x",
-            padx=70,
-            pady=(0, 18)
+            anchor="center",
+            pady=(0, 16)
         )
 
         status_items = [
@@ -1719,14 +1938,15 @@ class JobApp(ctk.CTk):
 
             status_card = ctk.CTkFrame(
                 status_frame,
-                height=70,
+                width=168,
+                height=74,
                 corner_radius=14
             )
 
             status_card.grid(
                 row=0,
                 column=index,
-                sticky="ew",
+                sticky="nsew",
                 padx=6
             )
 
@@ -1749,6 +1969,7 @@ class JobApp(ctk.CTk):
                 status_card,
                 text=label_text,
                 text_color="gray",
+                wraplength=132,
                 font=(
                     "Arial",
                     12
@@ -1764,6 +1985,7 @@ class JobApp(ctk.CTk):
             ctk.CTkLabel(
                 status_card,
                 text=value_text,
+                wraplength=140,
                 font=(
                     "Arial",
                     14,
@@ -1797,7 +2019,7 @@ class JobApp(ctk.CTk):
                 text="",
                 height=1
             ).pack(
-                pady=(0, 4)
+                pady=(0, 2)
             )
 
         frequent_label = ctk.CTkLabel(
@@ -1822,8 +2044,8 @@ class JobApp(ctk.CTk):
 
         quick_frame.pack(
             fill="x",
-            padx=120,
-            pady=(0, 16)
+            padx=90,
+            pady=(0, 14)
         )
 
         quick_jobs = [
@@ -1979,8 +2201,8 @@ class JobApp(ctk.CTk):
 
         features_frame.pack(
             fill="x",
-            padx=60,
-            pady=(4, 16)
+            padx=44,
+            pady=(4, 14)
         )
 
         features = [
@@ -2018,7 +2240,7 @@ class JobApp(ctk.CTk):
 
             card = ctk.CTkFrame(
                 features_frame,
-                height=118,
+                height=112,
                 corner_radius=16
             )
 
@@ -2231,16 +2453,40 @@ class JobApp(ctk.CTk):
 
     def get_latest_release(self):
 
-        response = requests.get(
-            GITHUB_RELEASES_API,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "User-Agent": f"Izbul/{APP_VERSION}"
-            },
-            timeout=8
-        )
+        try:
 
-        response.raise_for_status()
+            response = requests.get(
+                GITHUB_RELEASES_API,
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "User-Agent": f"Izbul/{APP_VERSION}"
+                },
+                timeout=8
+            )
+
+            response.raise_for_status()
+
+        except requests.HTTPError as error:
+
+            status_code = error.response.status_code if error.response else None
+
+            if status_code == 404:
+
+                raise RuntimeError(
+                    "GitHub release bulunamadı. Repo private olabilir, "
+                    "release henüz yayınlanmamış olabilir veya repo adı hatalı olabilir."
+                ) from error
+
+            if status_code == 403:
+
+                raise RuntimeError(
+                    "GitHub release bilgisine erişim engellendi. "
+                    "Repo private olabilir veya GitHub API limitine takılmış olabilir."
+                ) from error
+
+            raise RuntimeError(
+                f"GitHub release kontrolü başarısız oldu. HTTP {status_code}."
+            ) from error
 
         release = response.json()
 
@@ -2757,8 +3003,10 @@ class JobApp(ctk.CTk):
 
         if not silent:
 
+            message = str(error).strip() or "Güncelleme kontrolü başarısız."
+
             self.show_toast(
-                "Güncelleme kontrolü başarısız.",
+                message,
                 "#C0392B"
             )
 

@@ -63,7 +63,7 @@ python ui/app.py
 The project is packaged separately on macOS and Windows. Use the generated files under `release/` for distribution.
 
 - App name: `İzbul`
-- Version: `1.0.0`
+- Version: `1.0.1`
 - Creator / Publisher: `Ümit Ege Güldez`
 - macOS bundle identifier: `com.umitegeguldez.izbul`
 - Technical bundle / executable name: `Izbul`
@@ -128,5 +128,5 @@ When a newer release is available, the app can download the matching macOS or
 Windows installer, open it, and close the running app so the user can continue
 with installation.
 
-Use semantic release tags such as `v1.0.0`, `v1.1.0`, and attach the generated
+Use semantic release tags such as `v1.0.1`, `v1.1.0`, and attach the generated
 macOS / Windows installer files to each release.

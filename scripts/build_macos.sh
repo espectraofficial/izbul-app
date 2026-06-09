@@ -4,7 +4,7 @@ set -euo pipefail
 APP_NAME="Izbul"
 DISPLAY_NAME="İzbul"
 DMG_VOLUME_NAME="Izbul"
-APP_VERSION="1.0.0"
+APP_VERSION="1.0.1"
 DMG_NAME="Izbul-macOS.dmg"
 DMG_RW_NAME="Izbul-macOS-rw.dmg"
 PYINSTALLER_CONFIG_DIR="$PWD/build/pyinstaller-cache"
@@ -129,25 +129,29 @@ python3 - <<'PY'
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-width, height = 720, 440
-background = Image.new("RGBA", (width, height), "#071827")
+scale = 2
+width, height = 900, 560
+canvas_width, canvas_height = width * scale, height * scale
+background = Image.new("RGBA", (canvas_width, canvas_height), "#071827")
 draw = ImageDraw.Draw(background)
 
-for y in range(height):
-    ratio = y / max(1, height - 1)
+for y in range(canvas_height):
+    ratio = y / max(1, canvas_height - 1)
     r = int(8 + 2 * ratio)
     g = int(34 + 20 * ratio)
     b = int(55 + 36 * ratio)
-    draw.line([(0, y), (width, y)], fill=(r, g, b, 255))
+    draw.line([(0, y), (canvas_width, y)], fill=(r, g, b, 255))
 
-glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+glow = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
 glow_draw = ImageDraw.Draw(glow)
-glow_draw.ellipse((70, -80, 360, 210), fill=(0, 190, 210, 55))
-glow_draw.ellipse((420, 210, 780, 560), fill=(255, 178, 45, 35))
-background = Image.alpha_composite(background, glow.filter(ImageFilter.GaussianBlur(45)))
+glow_draw.ellipse((80 * scale, -110 * scale, 470 * scale, 275 * scale), fill=(0, 190, 210, 58))
+glow_draw.ellipse((560 * scale, 245 * scale, 1010 * scale, 650 * scale), fill=(255, 178, 45, 42))
+glow_draw.ellipse((350 * scale, 150 * scale, 670 * scale, 450 * scale), fill=(38, 105, 255, 30))
+background = Image.alpha_composite(background, glow.filter(ImageFilter.GaussianBlur(58 * scale)))
 draw = ImageDraw.Draw(background)
 
 def load_font(size, bold=False):
+    size *= scale
     candidates = [
         "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Arial.ttf",
         "/System/Library/Fonts/Supplemental/Helvetica Bold.ttf" if bold else "/System/Library/Fonts/Supplemental/Helvetica.ttf",
@@ -158,41 +162,109 @@ def load_font(size, bold=False):
             return ImageFont.truetype(candidate, size)
     return ImageFont.load_default()
 
-title_font = load_font(30, bold=True)
-body_font = load_font(15)
-small_font = load_font(13)
+title_font = load_font(34, bold=True)
+body_font = load_font(17)
+small_font = load_font(14, bold=True)
+caption_font = load_font(13)
 
 title = "İzbul"
-subtitle = "Kurmak için uygulamayı Applications klasörüne sürükleyin."
+subtitle = "Kurulum için İzbul simgesini Applications klasörüne sürükleyin."
 
 title_box = draw.textbbox((0, 0), title, font=title_font)
 subtitle_box = draw.textbbox((0, 0), subtitle, font=body_font)
-draw.text(((width - (title_box[2] - title_box[0])) / 2, 42), title, font=title_font, fill=(245, 250, 255, 255))
-draw.text(((width - (subtitle_box[2] - subtitle_box[0])) / 2, 82), subtitle, font=body_font, fill=(190, 211, 222, 255))
-
-card = Image.new("RGBA", (560, 210), (255, 255, 255, 0))
-card_draw = ImageDraw.Draw(card)
-card_draw.rounded_rectangle((0, 0, 560, 210), radius=26, fill=(255, 255, 255, 22), outline=(255, 255, 255, 42), width=1)
-background.alpha_composite(card, (80, 145))
+draw.text(((canvas_width - (title_box[2] - title_box[0])) / 2, 44 * scale), title, font=title_font, fill=(245, 250, 255, 255))
+draw.text(((canvas_width - (subtitle_box[2] - subtitle_box[0])) / 2, 92 * scale), subtitle, font=body_font, fill=(202, 222, 232, 255))
 
 draw = ImageDraw.Draw(background)
 
-arrow_y = 250
-draw.line((285, arrow_y, 435, arrow_y), fill=(80, 220, 230, 210), width=7)
-draw.polygon([(435, arrow_y), (408, arrow_y - 18), (408, arrow_y + 18)], fill=(80, 220, 230, 230))
-draw.line((285, arrow_y + 18, 435, arrow_y + 18), fill=(255, 180, 38, 130), width=2)
+panel_x1, panel_y1 = 78 * scale, 138 * scale
+panel_x2, panel_y2 = 822 * scale, 454 * scale
+draw.rounded_rectangle(
+    (panel_x1, panel_y1, panel_x2, panel_y2),
+    radius=34 * scale,
+    fill=(18, 48, 68, 255),
+    outline=(72, 128, 150, 255),
+    width=2 * scale
+)
 
-left_label = "1. İzbul"
-right_label = "2. Applications"
+left_center = (250 * scale, 290 * scale)
+right_center = (650 * scale, 290 * scale)
+target_radius = 108 * scale
+
+for center, tint in [
+    (left_center, (10, 113, 134, 255)),
+    (right_center, (124, 88, 24, 255))
+]:
+    cx, cy = center
+    draw.rounded_rectangle(
+        (
+            cx - target_radius,
+            cy - target_radius,
+            cx + target_radius,
+            cy + target_radius
+        ),
+        radius=32 * scale,
+        fill=tint,
+        outline=(142, 221, 230, 255),
+        width=2 * scale
+    )
+    draw.rounded_rectangle(
+        (
+            cx - (target_radius - 14 * scale),
+            cy - (target_radius - 14 * scale),
+            cx + (target_radius - 14 * scale),
+            cy + (target_radius - 14 * scale)
+        ),
+        radius=24 * scale,
+        outline=(222, 242, 247, 90),
+        width=1 * scale
+    )
+
+arrow_y = 290 * scale
+draw.line((382 * scale, arrow_y, 518 * scale, arrow_y), fill=(88, 225, 232, 235), width=9 * scale)
+draw.polygon(
+    [
+        (530 * scale, arrow_y),
+        (502 * scale, arrow_y - 22 * scale),
+        (502 * scale, arrow_y + 22 * scale)
+    ],
+    fill=(88, 225, 232, 245)
+)
+draw.line((382 * scale, arrow_y + 22 * scale, 518 * scale, arrow_y + 22 * scale), fill=(255, 190, 60, 150), width=2 * scale)
+
+step_left = "1"
+step_right = "2"
 hint = "Sürükle ve bırak"
-left_box = draw.textbbox((0, 0), left_label, font=small_font)
-right_box = draw.textbbox((0, 0), right_label, font=small_font)
+caption = "Uygulamayı kopyaladıktan sonra Applications klasöründen açın."
+left_box = draw.textbbox((0, 0), step_left, font=small_font)
+right_box = draw.textbbox((0, 0), step_right, font=small_font)
 hint_box = draw.textbbox((0, 0), hint, font=small_font)
-draw.text((178 - (left_box[2] - left_box[0]) / 2, 328), left_label, font=small_font, fill=(220, 235, 242, 230))
-draw.text((542 - (right_box[2] - right_box[0]) / 2, 328), right_label, font=small_font, fill=(220, 235, 242, 230))
-draw.text(((width - (hint_box[2] - hint_box[0])) / 2, 282), hint, font=small_font, fill=(255, 200, 75, 230))
+caption_box = draw.textbbox((0, 0), caption, font=caption_font)
+for center, text, box in [
+    (left_center, step_left, left_box),
+    (right_center, step_right, right_box)
+]:
+    cx, cy = center
+    badge_size = 28 * scale
+    draw.ellipse(
+        (cx - 96 * scale, cy - 104 * scale, cx - 96 * scale + badge_size, cy - 104 * scale + badge_size),
+        fill=(255, 190, 60, 230)
+    )
+    draw.text(
+        (
+            cx - 96 * scale + (badge_size - (box[2] - box[0])) / 2,
+            cy - 104 * scale + (badge_size - (box[3] - box[1])) / 2 - 1 * scale
+        ),
+        text,
+        font=small_font,
+        fill=(8, 25, 39, 255)
+    )
 
-background.save("build/dmg/.background/background.png")
+draw.text(((canvas_width - (hint_box[2] - hint_box[0])) / 2, 338 * scale), hint, font=small_font, fill=(255, 206, 82, 255))
+draw.text(((canvas_width - (caption_box[2] - caption_box[0])) / 2, 500 * scale), caption, font=caption_font, fill=(185, 210, 222, 235))
+
+final = background.resize((width, height), Image.Resampling.LANCZOS)
+final.save("build/dmg/.background/background.png")
 PY
 
 create_basic_dmg() {
@@ -233,13 +305,13 @@ tell application "Finder"
     set current view of container window to icon view
     set toolbar visible of container window to false
     set statusbar visible of container window to false
-    set the bounds of container window to {120, 120, 840, 560}
+    set the bounds of container window to {120, 120, 1020, 680}
     set viewOptions to the icon view options of container window
     set arrangement of viewOptions to not arranged
-    set icon size of viewOptions to 104
+    set icon size of viewOptions to 128
     set background picture of viewOptions to (POSIX file "$MOUNT_POINT/.background/background.png" as alias)
-    set position of item "$APP_NAME.app" of container window to {178, 248}
-    set position of item "Applications" of container window to {542, 248}
+    set position of item "$APP_NAME.app" of container window to {250, 290}
+    set position of item "Applications" of container window to {650, 290}
     update without registering applications
     delay 1
     close
