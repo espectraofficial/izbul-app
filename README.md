@@ -124,6 +124,9 @@ GitHub Actions can build both installers from the **Build Installers** workflow.
 ## Updates
 
 İzbul checks the latest GitHub Release on startup and from the Settings screen.
+When a newer release is available, the app can download the matching macOS or
+Windows installer, open it, and close the running app so the user can continue
+with installation.
 
 Use semantic release tags such as `v1.0.0`, `v1.1.0`, and attach the generated
 macOS / Windows installer files to each release.
