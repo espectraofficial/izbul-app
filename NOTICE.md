@@ -2,6 +2,18 @@
 
 İzbul is created and owned by Ümit Ege Güldez.
 
+© 2026 Ümit Ege Güldez. Tüm hakları saklıdır.
+
+Public access to this repository or its release artifacts does not grant any
+license, permission, ownership right, commercial use right, or redistribution
+right for the İzbul source code, application name, user interface, design,
+documentation, build scripts, or distribution packages.
+
+Bu repoya veya dağıtım dosyalarına herkese açık olarak erişilebilmesi; İzbul
+kaynak kodu, uygulama adı, arayüzü, tasarımı, dokümantasyonu, derleme dosyaları
+veya dağıtım paketleri üzerinde herhangi bir lisans, izin, sahiplik hakkı,
+ticari kullanım hakkı veya yeniden dağıtım hakkı verildiği anlamına gelmez.
+
 ## Source and Trademark Notice
 
 İzbul is an independent desktop application. It is not affiliated with,

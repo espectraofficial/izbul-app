@@ -10,6 +10,10 @@ project files may not be copied, modified, redistributed, sold, sublicensed,
 published, or claimed as another person's or organization's work without prior
 written permission from Umit Ege Guldez.
 
+Public repository visibility, download access, or access to release artifacts
+does not grant any license, permission, ownership right, commercial use right,
+or redistribution right beyond viewing the project on GitHub.
+
 Tüm hakları saklıdır.
 
 İzbul uygulamasının kaynak kodu, uygulama adı, arayüzü, tasarımı,
@@ -18,3 +22,8 @@ dokümantasyonu, derleme dosyaları, dağıtım paketleri ve ilgili proje dosyal
 olmadan kopyalanamaz, değiştirilemez, yeniden dağıtılamaz, satılamaz,
 alt lisanslanamaz, yayımlanamaz veya başka bir kişi ya da kurum tarafından
 sahiplenilemez.
+
+Bu repoya herkese açık olarak erişilebilmesi, projenin GitHub üzerinden
+görüntülenebilmesi veya dağıtım dosyalarının indirilebilmesi; herhangi bir
+lisans, izin, sahiplik hakkı, ticari kullanım hakkı veya yeniden dağıtım hakkı
+verildiği anlamına gelmez.

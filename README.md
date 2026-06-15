@@ -12,6 +12,8 @@ The app searches job listings, displays them in a single interface, supports fil
 
 Bu projenin kaynak kodu, tasarımı, uygulama adı ve dağıtım paketleri Ümit Ege Güldez'e aittir. Yazılı izin olmadan kopyalanamaz, değiştirilemez, yeniden dağıtılamaz, satılamaz veya başka bir kişi/kurum tarafından sahiplenilemez.
 
+Bu reponun public olarak görüntülenebilmesi kaynak kodun, tasarımın, uygulama adının veya dağıtım paketlerinin kullanımına, kopyalanmasına, değiştirilmesine, yeniden dağıtılmasına, satılmasına veya başka bir kişi/kurum tarafından sahiplenilmesine izin verildiği anlamına gelmez.
+
 All rights reserved. No part of this project may be copied, modified, redistributed, sold, sublicensed, or claimed as another person's or organization's work without prior written permission from Ümit Ege Güldez.
 
 See [NOTICE.md](NOTICE.md) for third-party source, trademark, and dependency notices.
@@ -128,5 +130,6 @@ When a newer release is available, the app can download the matching macOS or
 Windows installer, open it, and close the running app so the user can continue
 with installation.
 
-Use semantic release tags such as `v1.0.1`, `v1.1.0`, and attach the generated
-macOS / Windows installer files to each release.
+```md
+© 2026 Ümit Ege Güldez. Tüm hakları saklıdır. İzbul kaynak kodu, uygulama adı, tasarımı ve dağıtım paketleri izinsiz kopyalanamaz, değiştirilemez, yeniden dağıtılamaz veya sahiplenilemez.
+```
