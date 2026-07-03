@@ -4,6 +4,20 @@
 
 The app searches job listings, displays them in a single interface, supports filters, pagination, favorites, and external LinkedIn job search links.
 
+## Screenshots
+
+### Home
+
+![İzbul home screen](docs/images/izbul-home.png)
+
+### Search Results
+
+![İzbul search results](docs/images/izbul-search.png)
+
+### Favorites
+
+![İzbul favorites screen](docs/images/izbul-favorites.png)
+
 ## Ownership
 
 İzbul was created by **Ümit Ege Güldez**.
