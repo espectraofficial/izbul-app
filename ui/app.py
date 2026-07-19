@@ -555,6 +555,8 @@ class JobApp(ctk.CTk):
         self.search_in_progress = False
         self.search_token = 0
         self.view_mode = "home"
+        self.navigation_history = []
+        self.update_back_button_state()
 
         migrate_legacy_favorites(
             self.favorites_file
@@ -1670,13 +1672,63 @@ class JobApp(ctk.CTk):
 
     def go_back(self):
 
-        if hasattr(self, "previous_view_state"):
+        if not self.navigation_history:
 
-            self.restore_view_state(
-                self.previous_view_state
-            )
+            return
 
-            del self.previous_view_state
+        previous_state = self.navigation_history.pop()
+
+        self.restore_view_state(
+            previous_state
+        )
+
+        self.update_back_button_state()
+
+    def push_navigation_state(self):
+
+        state = self.capture_current_view_state()
+
+        if (
+            self.navigation_history and
+            self.get_view_state_signature(
+                self.navigation_history[-1]
+            ) == self.get_view_state_signature(state)
+        ):
+
+            return
+
+        self.navigation_history.append(state)
+
+        if len(self.navigation_history) > 25:
+
+            self.navigation_history = self.navigation_history[-25:]
+
+        self.update_back_button_state()
+
+    def get_view_state_signature(self, state):
+
+        return (
+            state.get("view_mode"),
+            state.get("current_page"),
+            len(state.get("filtered_jobs", [])),
+            len(state.get("all_jobs", [])),
+            state.get("last_status_message", ""),
+            state.get("search_summary_message", "")
+        )
+
+    def update_back_button_state(self):
+
+        if not hasattr(self, "back_button"):
+
+            return
+
+        has_history = bool(self.navigation_history)
+
+        self.back_button.configure(
+            state="normal" if has_history else "disabled",
+            fg_color="#3A3A3A" if has_history else "#2A2A2A",
+            text_color="#E5E7EB" if has_history else "#777777"
+        )
 
     def capture_current_view_state(self):
 
@@ -1687,10 +1739,29 @@ class JobApp(ctk.CTk):
             "current_page": self.current_page,
             "last_status_message": self.last_status_message,
             "search_summary_message": self.search_summary_message,
-            "last_search_report": self.last_search_report.copy()
+            "last_search_report": self.last_search_report.copy(),
+            "keyword": self.keyword_entry.get(),
+            "city": self.city_entry.get(),
+            "selected_sources": self.get_selected_sources(),
+            "selected_application_statuses": (
+                self.get_selected_application_statuses()
+            ),
+            "selected_experiences": [
+                exp
+                for exp, var in self.exp_vars.items()
+                if var.get()
+            ],
+            "selected_remote": [
+                remote
+                for remote, var in self.remote_vars.items()
+                if var.get()
+            ],
+            "sort_type": self.sort_var.get()
         }
 
     def restore_view_state(self, state):
+
+        self.restore_filter_controls_from_state(state)
 
         self.view_mode = state.get(
             "view_mode",
@@ -1747,11 +1818,103 @@ class JobApp(ctk.CTk):
             scroll_to_top=True
         )
 
+    def restore_filter_controls_from_state(self, state):
+
+        self.keyword_entry.delete(
+            0,
+            "end"
+        )
+
+        self.keyword_entry.insert(
+            0,
+            state.get(
+                "keyword",
+                ""
+            )
+        )
+
+        self.city_entry.delete(
+            0,
+            "end"
+        )
+
+        self.city_entry.insert(
+            0,
+            state.get(
+                "city",
+                ""
+            )
+        )
+
+        selected_sources = set(
+            state.get(
+                "selected_sources",
+                []
+            )
+        )
+
+        if selected_sources:
+
+            for source, var in self.source_vars.items():
+
+                var.set(
+                    source in selected_sources
+                )
+
+        selected_statuses = state.get(
+            "selected_application_statuses",
+            []
+        )
+
+        if hasattr(
+            self,
+            "application_status_filter_var"
+        ):
+
+            self.application_status_filter_var.set(
+                selected_statuses[0]
+                if len(selected_statuses) == 1
+                else "Tümü"
+            )
+
+        selected_experiences = set(
+            state.get(
+                "selected_experiences",
+                []
+            )
+        )
+
+        for exp, var in self.exp_vars.items():
+
+            var.set(
+                exp in selected_experiences
+            )
+
+        selected_remote = set(
+            state.get(
+                "selected_remote",
+                []
+            )
+        )
+
+        for remote, var in self.remote_vars.items():
+
+            var.set(
+                remote in selected_remote
+            )
+
+        self.sort_var.set(
+            state.get(
+                "sort_type",
+                "Varsayılan"
+            )
+        )
+
     def go_home(self):
 
         if self.view_mode != "home":
 
-            self.previous_view_state = self.capture_current_view_state()
+            self.push_navigation_state()
 
         self.show_welcome_screen()
 
@@ -4116,6 +4279,8 @@ class JobApp(ctk.CTk):
 
         self.save_search_preferences()
 
+        self.push_navigation_state()
+
         self.search_in_progress = True
         self.search_token += 1
         self.current_search_sources = selected_sources[:]
@@ -5119,9 +5284,13 @@ class JobApp(ctk.CTk):
 
         if self.view_mode != "favorites":
 
-            self.previous_view_state = self.capture_current_view_state()
+            self.push_navigation_state()
 
         self.view_mode = "favorites"
+
+        self.reset_favorite_filters(
+            save_preferences=False
+        )
 
         self.apply_filters()
 
@@ -5402,6 +5571,18 @@ class JobApp(ctk.CTk):
 
     def clear_favorite_filters(self):
 
+        self.reset_favorite_filters(
+            save_preferences=True
+        )
+
+        self.apply_filters()
+
+        self.set_status_message(
+            "Tüm favoriler gösteriliyor."
+        )
+
+    def reset_favorite_filters(self, save_preferences=False):
+
         self.keyword_entry.delete(
             0,
             "end"
@@ -5433,13 +5614,9 @@ class JobApp(ctk.CTk):
             "Varsayılan"
         )
 
-        self.save_search_preferences()
+        if save_preferences:
 
-        self.apply_filters()
-
-        self.set_status_message(
-            "Tüm favoriler gösteriliyor."
-        )
+            self.save_search_preferences()
 
     def clear_filters(self):
 
@@ -7774,6 +7951,8 @@ class JobApp(ctk.CTk):
 
         if self.current_page < total_pages:
 
+            self.push_navigation_state()
+
             self.current_page += 1
 
             self.display_jobs(
@@ -7783,6 +7962,8 @@ class JobApp(ctk.CTk):
     def prev_page(self):
 
         if self.current_page > 1:
+
+            self.push_navigation_state()
 
             self.current_page -= 1
 
