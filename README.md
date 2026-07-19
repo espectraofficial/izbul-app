@@ -49,6 +49,12 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+For development and tests, install the dev requirements:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
 ## Jooble API Key
 
 Jooble is optional. The app works without it and skips Jooble results.
@@ -72,6 +78,12 @@ export JOOBLE_API_HOST=jooble.org
 
 ```bash
 python ui/app.py
+```
+
+## Tests
+
+```bash
+python -m pytest
 ```
 
 ## Packaging
