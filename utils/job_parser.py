@@ -14,10 +14,150 @@ def parse_experience(
     position_level=None
 ):
 
-    text = f"""
-    {title}
-    {description}
-    """.lower()
+    def normalize(value):
+
+        return " ".join(
+            str(value or "")
+            .lower()
+            .replace("ı̇", "i")
+            .split()
+        )
+
+    title_text = normalize(title)
+    description_text = normalize(description)
+    combined_text = " ".join(
+        part
+        for part in [
+            title_text,
+            description_text
+        ]
+        if part
+    )
+
+    def has_phrase(text, phrases):
+
+        return any(
+            phrase in text
+            for phrase in phrases
+        )
+
+    def has_pattern(text, patterns):
+
+        return any(
+            re.search(
+                pattern,
+                text
+            )
+            for pattern in patterns
+        )
+
+    # Title signals are intentionally checked before marketplace metadata.
+    # Some sources report internships and assistants as generic entry levels.
+    intern_patterns = [
+
+        r"\bstajyer[a-zçğıöşü]*\b",
+        r"\bstaj\b",
+        r"\bintern\b",
+        r"\binternship\b",
+        r"\btrainee\b"
+    ]
+
+    junior_phrases = [
+
+        "uzman yardımcısı",
+        "uzman yardımcılığı",
+        "assistant specialist",
+        "entry level",
+        "başlangıç seviyesi",
+        "yeni mezun",
+        "new graduate",
+        "graduate program",
+        "management trainee"
+    ]
+
+    junior_patterns = [
+
+        r"\bjunior\b",
+        r"\bjr\.?\b",
+        r"\bassociate\b",
+        r"\basistan[a-zçğıöşü]*\b",
+        r"\bassistant\b",
+        r"\byardımcı[a-zçğıöşü]*\b"
+    ]
+
+    director_phrases = [
+
+        "director",
+        "direktör",
+        "head of",
+        "chief",
+        "vice president",
+        "genel müdür",
+        "executive"
+    ]
+
+    manager_phrases = [
+
+        "manager",
+        "müdür",
+        "müdür yardımcısı",
+        "lead",
+        "lider",
+        "supervisor",
+        "süpervizör",
+        "yönetici",
+        "team lead",
+        "head"
+    ]
+
+    senior_phrases = [
+
+        "senior",
+        "sr.",
+        "kıdemli",
+        "expert",
+        "principal",
+        "baş uzman",
+        "yetkili uzman",
+        "lead specialist"
+    ]
+
+    specialist_phrases = [
+
+        "uzman",
+        "specialist"
+    ]
+
+    # Most explicit title-level labels win over metadata and description text.
+    if has_pattern(title_text, intern_patterns):
+
+        return "Stajyer"
+
+    if has_phrase(title_text, director_phrases) or has_pattern(
+        title_text,
+        [r"\bvp\b"]
+    ):
+
+        return "Director"
+
+    if has_phrase(title_text, manager_phrases):
+
+        return "Manager"
+
+    if has_phrase(title_text, senior_phrases):
+
+        return "Senior"
+
+    if has_phrase(title_text, junior_phrases) or has_pattern(
+        title_text,
+        junior_patterns
+    ):
+
+        return "Junior"
+
+    if has_phrase(title_text, specialist_phrases):
+
+        return "Mid-Level"
 
     # =========================
     # POSITION LEVEL OVERRIDE
@@ -44,119 +184,37 @@ def parse_experience(
     except:
         pass
 
-    # =========================
-    # DIRECTOR
-    # =========================
+    # Description-only signals are weaker, but still useful when the title is
+    # generic or missing.
+    if has_pattern(combined_text, intern_patterns):
 
-    director_keywords = [
-
-        "director",
-        "direktör",
-        "head of",
-        "chief",
-        "vp",
-        "vice president",
-        "genel müdür",
-        "executive"
-    ]
-
-    # =========================
-    # MANAGER
-    # =========================
-
-    manager_keywords = [
-
-        "manager",
-        "müdür",
-        "lead",
-        "lider",
-        "supervisor",
-        "yönetici",
-        "team lead",
-        "head"
-    ]
-
-    # =========================
-    # SENIOR
-    # =========================
-
-    senior_keywords = [
-
-        "senior",
-        "sr.",
-        "kıdemli",
-        "uzman",
-        "specialist",
-        "expert",
-        "principal"
-    ]
-
-    # =========================
-    # INTERN
-    # =========================
-
-    intern_keywords = [
-
-        "intern",
-        "internship",
-        "staj",
-        "stajyer",
-        "trainee"
-    ]
-
-    # =========================
-    # JUNIOR
-    # =========================
-
-    junior_keywords = [
-
-        "junior",
-        "jr.",
-        "entry level",
-        "associate",
-        "assistant specialist",
-        "uzman yardımcısı",
-        "assistant"
-    ]
+        return "Stajyer"
 
     # =========================
     # PRIORITY CHECK
     # =========================
 
-    # DIRECTOR
-    for keyword in director_keywords:
+    if has_phrase(combined_text, director_phrases) or has_pattern(
+        combined_text,
+        [r"\bvp\b"]
+    ):
 
-        if keyword in text:
+        return "Director"
 
-            return "Director"
+    if has_phrase(combined_text, manager_phrases):
 
-    # MANAGER
-    for keyword in manager_keywords:
+        return "Manager"
 
-        if keyword in text:
+    if has_phrase(combined_text, senior_phrases):
 
-            return "Manager"
+        return "Senior"
 
-    # SENIOR
-    for keyword in senior_keywords:
+    if has_phrase(combined_text, junior_phrases) or has_pattern(
+        combined_text,
+        junior_patterns
+    ):
 
-        if keyword in text:
-
-            return "Senior"
-
-    # INTERN
-    for keyword in intern_keywords:
-
-        if keyword in text:
-
-            return "Stajyer"
-
-    # JUNIOR
-    for keyword in junior_keywords:
-
-        if keyword in text:
-
-            return "Junior"
+        return "Junior"
 
     # =========================
     # EXPERIENCE YEARS
@@ -164,12 +222,11 @@ def parse_experience(
 
     year_patterns = [
 
+        r"([0-9]+)\s*[-–]\s*[0-9]+\s*yıl",
+        r"([0-9]+)\s*[-–]\s*[0-9]+\s*years",
         r"([0-9]+)\+?\s*yıl",
-
         r"([0-9]+)\+?\s*years",
-
         r"minimum\s*([0-9]+)",
-
         r"en az\s*([0-9]+)"
     ]
 
@@ -177,7 +234,7 @@ def parse_experience(
 
         match = re.search(
             pattern,
-            text
+            combined_text
         )
 
         if match:
@@ -201,6 +258,20 @@ def parse_experience(
             else:
 
                 return "Junior"
+
+    # =========================
+    # AMBIGUOUS SPECIALIST TITLES
+    # =========================
+
+    if has_phrase(
+        combined_text,
+        [
+            "uzman",
+            "specialist"
+        ]
+    ):
+
+        return "Mid-Level"
 
     # =========================
     # DEFAULT

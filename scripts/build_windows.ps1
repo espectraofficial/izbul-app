@@ -32,7 +32,7 @@ New-Item -ItemType Directory -Force -Path release\windows | Out-Null
 $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 
 if ($iscc) {
-  & $iscc.Source packaging\windows\job-finder.iss
+  & $iscc.Source packaging\windows\izbul.iss
   Write-Host "Created release\windows\Izbul-Windows-Setup.exe"
 } else {
   Compress-Archive -Path "dist\$AppName\*" -DestinationPath "release\windows\Izbul-Windows.zip" -Force
