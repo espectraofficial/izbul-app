@@ -75,3 +75,92 @@ def test_parse_remote_detects_remote_and_office():
 
     assert parse_remote(description="Evden çalışma imkanı") == "Remote"
     assert parse_remote(work_model="Ofis") == "Ofis"
+
+
+def test_parse_remote_uses_structured_work_model_as_primary_source():
+
+    assert parse_remote(
+        work_model="Hibrit",
+        description="Pozisyonun detayları görüşmede paylaşılacaktır."
+    ) == "Hibrit"
+    assert parse_remote(
+        work_model="Ofis",
+        description="Remote ekiplerle iletişim kurulacaktır."
+    ) == "Ofis"
+    assert parse_remote(work_model="Home Office") == "Remote"
+
+
+def test_parse_remote_requires_work_context_in_description():
+
+    false_hybrid_examples = [
+        "Hibrit bulut çözümleri konusunda deneyimli",
+        "Hibrit araç teknolojileri ekibinde görev alacak",
+        "Karma eğitim modelleri geliştiren şirketimiz",
+        "Mixed signal devre tasarımı bilgisine sahip"
+    ]
+
+    for description in false_hybrid_examples:
+        assert parse_remote(description=description) == "Belirtilmemiş"
+
+
+def test_parse_remote_ignores_software_and_technical_terms():
+
+    assert parse_remote(
+        description="Microsoft Office programlarına hakim"
+    ) == "Belirtilmemiş"
+    assert parse_remote(
+        description="Remote access ve uzaktan eğitim sistemleri geliştirecek"
+    ) == "Belirtilmemiş"
+    assert parse_remote(
+        title="Hybrid Cloud Engineer"
+    ) == "Belirtilmemiş"
+
+
+def test_parse_remote_detects_contextual_hybrid_phrases():
+
+    examples = [
+        "Hibrit çalışma modeli uygulanmaktadır.",
+        "Çalışma modelimiz: hibrit.",
+        "Haftada 3 gün ofisten, 2 gün uzaktan çalışıyoruz.",
+        "Haftada iki gün ofisten, kalan günler evden çalışıyoruz.",
+        "Hem ofis hem uzaktan çalışma imkanı sunuyoruz.",
+        "This is a hybrid working position."
+    ]
+
+    for description in examples:
+        assert parse_remote(description=description) == "Hibrit"
+
+
+def test_parse_remote_detects_explicit_title_markers():
+
+    assert parse_remote(
+        title="Senior Python Developer (Remote)"
+    ) == "Remote"
+    assert parse_remote(
+        title="Remote - Backend Developer"
+    ) == "Remote"
+    assert parse_remote(
+        title="Muhasebe Uzmanı - Hibrit"
+    ) == "Hibrit"
+    assert parse_remote(
+        title="Satış Temsilcisi (Ofis)"
+    ) == "Ofis"
+
+
+def test_parse_remote_respects_negated_remote_and_hybrid_phrases():
+
+    assert parse_remote(
+        description=(
+            "Uzaktan çalışma imkanı bulunmamaktadır. "
+            "Pozisyon ofisten çalışmayı gerektirir."
+        )
+    ) == "Ofis"
+    assert parse_remote(
+        description=(
+            "Hibrit çalışma modeli uygulanmamaktadır; "
+            "ofiste çalışılacaktır."
+        )
+    ) == "Ofis"
+    assert parse_remote(
+        description="No remote work is available for this role."
+    ) == "Belirtilmemiş"

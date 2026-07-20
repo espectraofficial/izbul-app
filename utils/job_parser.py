@@ -91,29 +91,87 @@ YEAR_PATTERNS = [
     ]
 ]
 
-HYBRID_KEYWORDS = [
-    "hybrid",
-    "hibrit",
-    "remote + office",
-    "office + remote",
-    "mixed"
+TITLE_HYBRID_PATTERNS = [
+    re.compile(pattern)
+    for pattern in [
+        r"(?:\(|\[)\s*(?:hibrit|hybrid)\s*(?:\)|\])",
+        r"\s[-|/]\s*(?:hibrit|hybrid)\s*$",
+        r"^(?:hibrit|hybrid)\s*[-|/]\s*"
+    ]
 ]
 
-REMOTE_KEYWORDS = [
-    "remote",
-    "uzaktan",
-    "work from home",
-    "home office",
-    "fully remote",
-    "evden çalışma"
+TITLE_REMOTE_PATTERNS = [
+    re.compile(pattern)
+    for pattern in [
+        r"(?:\(|\[)\s*(?:remote|uzaktan|home[ -]office)\s*(?:\)|\])",
+        r"\s[-|/]\s*(?:remote|uzaktan|home[ -]office)\s*$",
+        r"^(?:remote|uzaktan|home[ -]office)\s*[-|/]\s*"
+    ]
 ]
 
-OFFICE_KEYWORDS = [
-    "office",
-    "onsite",
-    "on-site",
-    "ofis",
-    "yerinde"
+TITLE_OFFICE_PATTERNS = [
+    re.compile(pattern)
+    for pattern in [
+        r"(?:\(|\[)\s*(?:ofis|office|on[ -]?site|yerinde)\s*(?:\)|\])",
+        r"\s[-|/]\s*(?:ofis|office|on[ -]?site|yerinde)\s*$",
+        r"^(?:ofis|office|on[ -]?site|yerinde)\s*[-|/]\s*"
+    ]
+]
+
+HYBRID_CONTEXT_PATTERNS = [
+    re.compile(pattern)
+    for pattern in [
+        r"\bhibrit\s+(?:çalış\w*|iş\s+model\w*|model\w*|pozisyon\w*)",
+        r"\b(?:çalışma|iş)\s+model\w*\s*(?::|;|-)?\s*hibrit\b",
+        r"\bhybrid\s+(?:work\w*|model\w*|schedule\w*|position\w*|role\w*)",
+        r"\b(?:work|working)\s+model\w*\s*(?:is|:|;|-)?\s*hybrid\b",
+        r"\bhem\s+(?:ofis\w*|office)\s+hem\s+(?:uzaktan|remote|evden)\b",
+        r"\bhem\s+(?:uzaktan|remote|evden)\s+hem\s+(?:ofis\w*|office)\b",
+        r"\b(?:ofis\w*|office)\s*(?:ve|ile|\+|/)\s*(?:uzaktan|remote|evden)\s+çalış\w*",
+        r"\b(?:uzaktan|remote|evden)\s*(?:ve|ile|\+|/)\s*(?:ofis\w*|office)\s+çalış\w*",
+        r"\bhafta(?:da|nın)?\s+\d+\s+gün\s+(?:ofis\w*|iş\s*yer\w*|office).{0,60}\d+\s+gün\s+(?:evden|uzaktan|remote)",
+        r"\bhafta(?:da|nın)?\s+\d+\s+gün\s+(?:evden|uzaktan|remote).{0,60}\d+\s+gün\s+(?:ofis\w*|iş\s*yer\w*|office)",
+        r"\bhafta(?:da|nın)?\s+(?:bir|iki|üç|dört|beş|altı|yedi)\s+gün\s+(?:ofis\w*|iş\s*yer\w*|office).{0,60}(?:kalan\s+gün\w*|(?:bir|iki|üç|dört|beş|altı|yedi)\s+gün)\s+(?:evden|uzaktan|remote|home[ -]office)",
+        r"\bhafta(?:da|nın)?\s+(?:bir|iki|üç|dört|beş|altı|yedi)\s+gün\s+(?:evden|uzaktan|remote|home[ -]office).{0,60}(?:kalan\s+gün\w*|(?:bir|iki|üç|dört|beş|altı|yedi)\s+gün)\s+(?:ofis\w*|iş\s*yer\w*|office)"
+    ]
+]
+
+REMOTE_CONTEXT_PATTERNS = [
+    re.compile(pattern)
+    for pattern in [
+        r"\buzaktan\s+çalış\w*",
+        r"\bevden\s+çalış\w*",
+        r"\b(?:tamamen|tümüyle|%?\s*100)\s+(?:uzaktan|remote)\b",
+        r"\b(?:çalışma|iş)\s+model\w*\s*(?::|;|-)?\s*uzaktan\b",
+        r"\bremote\s+(?:work\w*|working|position\w*|role\w*|job\w*)",
+        r"\b(?:remote|uzaktan)\s+(?:çalışma\s+)?(?:imkan\w*|olana\w*|seçenek\w*)",
+        r"\b(?:work|working)\s+model\w*\s*(?:is|:|;|-)?\s*remote\b",
+        r"\bwork\s+from\s+home\b",
+        r"\bhome[ -]office\s+(?:çalış\w*|work\w*|model\w*)?",
+        r"\blokasyon(?:dan)?\s+bağımsız\s+çalış\w*"
+    ]
+]
+
+OFFICE_CONTEXT_PATTERNS = [
+    re.compile(pattern)
+    for pattern in [
+        r"\bofis(?:ten|te|imizde|inde)?(?:\s+(?:ortamında|içi))?\s+çalış\w*",
+        r"\b(?:çalışma|iş)\s+model\w*\s*(?::|;|-)?\s*(?:ofis|yerinde)\b",
+        r"\b(?:tamamen|tam\s+zamanlı)\s+(?:ofis|yerinde|on[ -]?site)\b",
+        r"\byerinde\s+çalış\w*",
+        r"\biş\s*yer\w*\s+çalış\w*",
+        r"\bon[ -]?site\s+(?:work\w*|working|position\w*|role\w*|job\w*)"
+    ]
+]
+
+NEGATED_WORK_PATTERNS = [
+    re.compile(pattern)
+    for pattern in [
+        r"\b(?:uzaktan|remote|hibrit|hybrid)\s+çalış\w*.{0,30}\b(?:yok|değil|(?:bulun|sunul|uygulan)(?:mamakta(?:dır)?|m[ıiuü]yor|mayacak(?:tır)?|maz))",
+        r"\b(?:uzaktan|remote|hibrit|hybrid)\s+(?:model\w*|work\w*).{0,30}\b(?:yok|değil|(?:bulun|sunul|uygulan)(?:mamakta(?:dır)?|m[ıiuü]yor|mayacak(?:tır)?|maz))",
+        r"\b(?:no|not)\s+(?:a\s+)?(?:remote|hybrid)(?:\s+work\w*)?\b",
+        r"\b(?:remote|hybrid)\s+work\w*.{0,25}\b(?:not\s+available|isn'?t\s+available|unavailable)\b"
+    ]
 ]
 
 
@@ -141,6 +199,59 @@ def has_pattern(text, patterns):
         pattern.search(text)
         for pattern in patterns
     )
+
+
+def classify_explicit_work_model(value):
+
+    text = normalize_parser_text(value)
+
+    if not text:
+
+        return None
+
+    text = re.sub(
+        r"^(?:çalışma|iş|work|working)\s+model\w*\s*(?::|;|=|-)?\s*",
+        "",
+        text
+    )
+
+    if re.search(r"\b(?:hibrit|hybrid)\b", text):
+
+        return "Hibrit"
+
+    if re.search(r"\bhome[ -]office\b", text):
+
+        return "Remote"
+
+    has_remote = bool(
+        re.search(r"\b(?:remote|uzaktan|evden)\b", text)
+    )
+    has_office = bool(
+        re.search(r"\b(?:office|ofis|on[ -]?site|yerinde)\b", text)
+    )
+
+    if has_remote and has_office:
+
+        return "Hibrit"
+
+    if has_remote:
+
+        return "Remote"
+
+    if has_office:
+
+        return "Ofis"
+
+    return None
+
+
+def mask_negated_work_phrases(text):
+
+    for pattern in NEGATED_WORK_PATTERNS:
+
+        text = pattern.sub(" ", text)
+
+    return text
 
 
 # =========================
@@ -313,39 +424,42 @@ def parse_remote(
     description=""
 ):
 
-    text = f"""
-    {work_model}
-    {title}
-    {description}
-    """.lower()
+    explicit_model = classify_explicit_work_model(
+        work_model
+    )
 
-    # =========================
-    # PRIORITY
-    # =========================
+    if explicit_model:
 
-    # HYBRID FIRST
-    for keyword in HYBRID_KEYWORDS:
+        return explicit_model
 
-        if keyword in text:
+    title_text = normalize_parser_text(title)
 
-            return "Hibrit"
+    if has_pattern(title_text, TITLE_HYBRID_PATTERNS):
 
-    # REMOTE
-    for keyword in REMOTE_KEYWORDS:
+        return "Hibrit"
 
-        if keyword in text:
+    if has_pattern(title_text, TITLE_REMOTE_PATTERNS):
 
-            return "Remote"
+        return "Remote"
 
-    # OFFICE
-    for keyword in OFFICE_KEYWORDS:
+    if has_pattern(title_text, TITLE_OFFICE_PATTERNS):
 
-        if keyword in text:
+        return "Ofis"
 
-            return "Ofis"
+    description_text = mask_negated_work_phrases(
+        normalize_parser_text(description)
+    )
 
-    # =========================
-    # DEFAULT
-    # =========================
+    if has_pattern(description_text, HYBRID_CONTEXT_PATTERNS):
+
+        return "Hibrit"
+
+    if has_pattern(description_text, REMOTE_CONTEXT_PATTERNS):
+
+        return "Remote"
+
+    if has_pattern(description_text, OFFICE_CONTEXT_PATTERNS):
+
+        return "Ofis"
 
     return "Belirtilmemiş"
