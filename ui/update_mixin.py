@@ -1,5 +1,7 @@
+import hashlib
 import logging
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -19,6 +21,95 @@ from ui.versioning import is_newer_version
 
 
 logger = logging.getLogger(__name__)
+
+
+def parse_sha256_checksum(checksum_text, asset_name):
+    asset_name = Path(asset_name).name
+
+    for raw_line in str(checksum_text or "").splitlines():
+        line = raw_line.strip()
+        match = re.match(
+            r"^([a-fA-F0-9]{64})(?:\s+[*]?(.+))?$",
+            line
+        )
+
+        if not match:
+            continue
+
+        listed_name = str(match.group(2) or "").strip()
+
+        if listed_name and Path(listed_name).name != asset_name:
+            continue
+
+        return match.group(1).lower()
+
+    raise ValueError("Güncelleme checksum değeri bulunamadı.")
+
+
+def download_verified_file(
+    download_url,
+    checksum_url,
+    target_file,
+    asset_name,
+    expected_size=0,
+    progress_callback=None,
+    request_get=requests.get,
+):
+    checksum_response = request_get(checksum_url, timeout=10)
+    checksum_response.raise_for_status()
+    expected_hash = parse_sha256_checksum(
+        checksum_response.text,
+        asset_name
+    )
+
+    target_file = Path(target_file)
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    partial_file = target_file.with_name(target_file.name + ".part")
+    partial_file.unlink(missing_ok=True)
+    digest = hashlib.sha256()
+    downloaded = 0
+
+    try:
+        with request_get(
+            download_url,
+            stream=True,
+            timeout=20
+        ) as response:
+            response.raise_for_status()
+            header_size = int(response.headers.get("content-length", 0) or 0)
+            total_size = header_size or int(expected_size or 0)
+
+            with partial_file.open("wb") as file:
+                for chunk in response.iter_content(chunk_size=1024 * 256):
+                    if not chunk:
+                        continue
+
+                    file.write(chunk)
+                    digest.update(chunk)
+                    downloaded += len(chunk)
+
+                    if progress_callback and total_size:
+                        progress_callback(
+                            min(100, int(downloaded * 100 / total_size))
+                        )
+
+                file.flush()
+                os.fsync(file.fileno())
+
+        if header_size and downloaded != header_size:
+            raise ValueError("Güncelleme dosyası eksik indirildi.")
+
+        if expected_size and downloaded != int(expected_size):
+            raise ValueError("Güncelleme dosyasının boyutu doğrulanamadı.")
+
+        if digest.hexdigest().lower() != expected_hash:
+            raise ValueError("Güncelleme dosyasının SHA-256 doğrulaması başarısız.")
+
+        os.replace(partial_file, target_file)
+        return target_file
+
+    finally:
+        partial_file.unlink(missing_ok=True)
 
 
 class UpdateMixin:
@@ -83,6 +174,7 @@ class UpdateMixin:
 
         download_url = html_url
         asset_name = ""
+        selected_asset = None
 
         preferred_asset_groups = []
 
@@ -108,7 +200,7 @@ class UpdateMixin:
 
                 for asset in assets:
 
-                    asset_name = str(
+                    candidate_name = str(
                         asset.get(
                             "name",
                             ""
@@ -116,7 +208,7 @@ class UpdateMixin:
                     )
 
                     if all(
-                        keyword.lower() in asset_name.lower()
+                        keyword.lower() in candidate_name.lower()
                         for keyword in keywords
                     ):
 
@@ -125,6 +217,8 @@ class UpdateMixin:
                         break
 
                 if matching_asset:
+
+                    selected_asset = matching_asset
 
                     asset_name = str(
                         matching_asset.get(
@@ -140,11 +234,37 @@ class UpdateMixin:
 
                     break
 
+        checksum_url = ""
+        checksum_asset_name = ""
+
+        if selected_asset and asset_name:
+            checksum_names = {
+                f"{asset_name}.sha256".lower(),
+                f"{asset_name}.sha256.txt".lower(),
+                "sha256sums.txt",
+            }
+
+            for asset in assets:
+                candidate_name = str(asset.get("name", ""))
+
+                if candidate_name.lower() in checksum_names:
+                    checksum_asset_name = candidate_name
+                    checksum_url = str(
+                        asset.get("browser_download_url", "")
+                    ).strip()
+                    break
+
         return {
             "version": tag_name,
             "url": html_url,
             "download_url": download_url,
-            "asset_name": asset_name
+            "asset_name": asset_name,
+            "asset_size": int(
+                selected_asset.get("size", 0) or 0
+            ) if selected_asset else 0,
+            "checksum_url": checksum_url,
+            "checksum_asset_name": checksum_asset_name,
+            "release_notes": str(release.get("body", "") or "").strip(),
         }
 
     def open_latest_release(self):
@@ -239,13 +359,31 @@ class UpdateMixin:
             )
         ).strip()
 
+        checksum_url = str(
+            release_info.get("checksum_url", "")
+        ).strip()
+
         if not download_url or download_url == release_url:
 
             webbrowser.open(
                 release_url or GITHUB_RELEASES_URL
             )
 
-            return
+            return False
+
+        if not checksum_url:
+            message = (
+                "Checksum bulunamadı; güvenli indirme için "
+                "release sayfası açılıyor."
+            )
+
+            if status_callback:
+                status_callback(message, "#C0392B")
+            else:
+                self.show_toast(message, "#C0392B")
+
+            webbrowser.open(release_url or GITHUB_RELEASES_URL)
+            return False
 
         file_name = self.get_update_file_name(
             release_info
@@ -289,50 +427,19 @@ class UpdateMixin:
                     "#1F6AA5"
                 )
 
-                with requests.get(
-                    download_url,
-                    stream=True,
-                    timeout=20
-                ) as response:
-
-                    response.raise_for_status()
-
-                    total_size = int(
-                        response.headers.get(
-                            "content-length",
-                            0
-                        ) or 0
+                download_verified_file(
+                    download_url=download_url,
+                    checksum_url=checksum_url,
+                    target_file=target_file,
+                    asset_name=file_name,
+                    expected_size=int(
+                        release_info.get("asset_size", 0) or 0
+                    ),
+                    progress_callback=lambda percent: set_status(
+                        f"Güncelleme indiriliyor... %{percent}",
+                        "#1F6AA5"
                     )
-
-                    downloaded = 0
-
-                    with open(
-                        target_file,
-                        "wb"
-                    ) as file:
-
-                        for chunk in response.iter_content(
-                            chunk_size=1024 * 256
-                        ):
-
-                            if not chunk:
-
-                                continue
-
-                            file.write(chunk)
-
-                            downloaded += len(chunk)
-
-                            if total_size:
-
-                                percent = int(
-                                    downloaded * 100 / total_size
-                                )
-
-                                set_status(
-                                    f"Güncelleme indiriliyor... %{percent}",
-                                    "#1F6AA5"
-                                )
+                )
 
                 set_status(
                     "Güncelleme indirildi. Kurulum açılıyor...",
@@ -374,6 +481,8 @@ class UpdateMixin:
             daemon=True
         ).start()
 
+        return True
+
     def show_update_prompt(self, release_info):
 
         if (
@@ -393,7 +502,7 @@ class UpdateMixin:
         update_window = ctk.CTkToplevel(self)
         self.update_prompt_window = update_window
         update_window.title("Güncelleme Mevcut")
-        update_window.geometry("460x260")
+        update_window.geometry("520x470")
         update_window.resizable(False, False)
         update_window.transient(self)
         update_window.focus_force()
@@ -447,8 +556,39 @@ class UpdateMixin:
             )
         ).pack(
             padx=26,
-            pady=(0, 14)
+            pady=(0, 10)
         )
+
+        ctk.CTkLabel(
+            container,
+            text="Sürüm Notları",
+            font=("Arial", 13, "bold"),
+            anchor="w"
+        ).pack(
+            fill="x",
+            padx=26,
+            pady=(0, 5)
+        )
+
+        release_notes = str(
+            release_info.get("release_notes", "")
+            or "Bu sürüm için açıklama paylaşılmadı."
+        )[:2500]
+
+        notes_box = ctk.CTkTextbox(
+            container,
+            height=115,
+            corner_radius=8,
+            font=("Arial", 12),
+            wrap="word"
+        )
+        notes_box.pack(
+            fill="x",
+            padx=24,
+            pady=(0, 10)
+        )
+        notes_box.insert("1.0", release_notes)
+        notes_box.configure(state="disabled")
 
         status_label = ctk.CTkLabel(
             container,
@@ -497,10 +637,18 @@ class UpdateMixin:
                 state="disabled"
             )
 
-            self.start_update_download(
+            download_started = self.start_update_download(
                 release_info,
                 status_callback=set_status
             )
+
+            if not download_started:
+
+                update_button.configure(
+                    state="normal",
+                    text="Güncelle"
+                )
+                continue_button.configure(state="normal")
 
         continue_button = ctk.CTkButton(
             actions,

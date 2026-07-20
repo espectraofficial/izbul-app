@@ -146,15 +146,22 @@ Distribution outputs:
 - macOS: `release/macos/Izbul-macOS.dmg`
 - macOS fallback: `release/macos/Izbul-macOS.zip`
 - Windows: `release/windows/Izbul-Windows-Setup.exe`
+- SHA-256 checksums: installer adının sonuna `.sha256` eklenmiş dosya
 
 GitHub Actions can build both installers from the **Build Installers** workflow. Run it manually from the Actions tab, then download the generated artifacts.
+
+Bir GitHub Release yayınlarken installer ile ona ait `.sha256` dosyasını birlikte
+Release assets alanına yükleyin. Checksum bulunmayan veya doğrulanamayan bir
+installer İzbul tarafından otomatik olarak çalıştırılmaz.
 
 ## Updates
 
 İzbul checks the latest GitHub Release on startup and from the Settings screen.
 When a newer release is available, the app can download the matching macOS or
 Windows installer, open it, and close the running app so the user can continue
-with installation.
+with installation. Downloads are written to a temporary `.part` file and are
+opened only after their size and SHA-256 checksum have been verified. The update
+window also displays the release notes published on GitHub.
 
 ```md
 © 2026 Ümit Ege Güldez. Tüm hakları saklıdır. İzbul kaynak kodu, uygulama adı, tasarımı ve dağıtım paketleri izinsiz kopyalanamaz, değiştirilemez, yeniden dağıtılamaz veya sahiplenilemez.

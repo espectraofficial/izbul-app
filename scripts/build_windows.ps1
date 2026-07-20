@@ -38,3 +38,12 @@ if ($iscc) {
   Compress-Archive -Path "dist\$AppName\*" -DestinationPath "release\windows\Izbul-Windows.zip" -Force
   Write-Host "Inno Setup was not found. Created release\windows\Izbul-Windows.zip instead."
 }
+
+Get-ChildItem release\windows -File |
+  Where-Object { $_.Extension -in ".exe", ".zip" } |
+  ForEach-Object {
+    $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$hash  $($_.Name)" |
+      Set-Content -Path "$($_.FullName).sha256" -Encoding ascii
+    Write-Host "Created $($_.FullName).sha256"
+  }

@@ -1,7 +1,5 @@
 import csv
-import json
 import logging
-import os
 import webbrowser
 from pathlib import Path
 from tkinter import filedialog
@@ -13,6 +11,7 @@ from ui.formatters import (
     format_saved_at,
     get_current_timestamp
 )
+from ui.storage import load_json_with_backup, write_json_atomic
 
 
 logger = logging.getLogger(__name__)
@@ -40,23 +39,10 @@ class FavoritesMixin:
 
         try:
 
-            Path(self.favorites_file).parent.mkdir(
-                parents=True,
-                exist_ok=True
-            )
-
-            with open(
+            write_json_atomic(
                 self.favorites_file,
-                "w",
-                encoding="utf-8"
-            ) as file:
-
-                json.dump(
-                    self.favorite_jobs,
-                    file,
-                    ensure_ascii=False,
-                    indent=4
-                )
+                self.favorite_jobs
+            )
 
         except Exception as e:
 
@@ -72,60 +58,43 @@ class FavoritesMixin:
 
     def load_favorites(self):
 
-        if not os.path.exists(self.favorites_file):
-
-            self.favorite_jobs = []
-            self.rebuild_favorites_index()
-
-            return
-
         try:
-
-            with open(
+            data = load_json_with_backup(
                 self.favorites_file,
-                "r",
-                encoding="utf-8"
-            ) as file:
+                [],
+                expected_type=list
+            )
+            self.favorite_jobs = data
+            changed = False
 
-                data = json.load(file)
+            for favorite in self.favorite_jobs:
 
-            if isinstance(data, list):
+                if "application_status" not in favorite:
 
-                self.favorite_jobs = data
+                    favorite["application_status"] = "Kaydedildi"
+                    changed = True
 
-                changed = False
+                if "application_note" not in favorite:
 
-                for favorite in self.favorite_jobs:
+                    favorite["application_note"] = ""
+                    changed = True
 
-                    if "application_status" not in favorite:
+                if "saved_at" not in favorite:
 
-                        favorite["application_status"] = "Kaydedildi"
-                        changed = True
+                    favorite["saved_at"] = get_current_timestamp()
+                    changed = True
 
-                    if "application_note" not in favorite:
+                if "status_updated_at" not in favorite:
 
-                        favorite["application_note"] = ""
-                        changed = True
+                    favorite["status_updated_at"] = favorite.get(
+                        "saved_at",
+                        get_current_timestamp()
+                    )
+                    changed = True
 
-                    if "saved_at" not in favorite:
+            if changed:
 
-                        favorite["saved_at"] = get_current_timestamp()
-                        changed = True
-
-                    if "status_updated_at" not in favorite:
-
-                        favorite["status_updated_at"] = favorite.get(
-                            "saved_at",
-                            get_current_timestamp()
-                        )
-                        changed = True
-
-                if changed:
-
-                    self.save_favorites()
-            
-            else:
-                self.favorite_jobs = []
+                self.save_favorites()
 
             self.rebuild_favorites_index()
 
@@ -140,23 +109,10 @@ class FavoritesMixin:
 
         try:
 
-            Path(self.hidden_jobs_file).parent.mkdir(
-                parents=True,
-                exist_ok=True
-            )
-
-            with open(
+            write_json_atomic(
                 self.hidden_jobs_file,
-                "w",
-                encoding="utf-8"
-            ) as file:
-
-                json.dump(
-                    self.hidden_jobs,
-                    file,
-                    ensure_ascii=False,
-                    indent=4
-                )
+                self.hidden_jobs
+            )
 
         except Exception as e:
 
@@ -168,28 +124,13 @@ class FavoritesMixin:
 
     def load_hidden_jobs(self):
 
-        if not os.path.exists(self.hidden_jobs_file):
-
-            self.hidden_jobs = []
-            self.rebuild_hidden_jobs_index()
-
-            return
-
         try:
-
-            with open(
+            data = load_json_with_backup(
                 self.hidden_jobs_file,
-                "r",
-                encoding="utf-8"
-            ) as file:
-
-                data = json.load(file)
-
-            self.hidden_jobs = (
-                data
-                if isinstance(data, list)
-                else []
+                [],
+                expected_type=list
             )
+            self.hidden_jobs = data
 
             self.rebuild_hidden_jobs_index()
 

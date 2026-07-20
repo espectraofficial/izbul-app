@@ -359,3 +359,18 @@ else
   fi
 
 fi
+
+for artifact in \
+  "release/macos/$DMG_NAME" \
+  "release/macos/${ZIP_NAME:-Izbul-macOS.zip}"
+do
+  if [ -f "$artifact" ]; then
+    artifact_dir="$(dirname "$artifact")"
+    artifact_name="$(basename "$artifact")"
+    (
+      cd "$artifact_dir"
+      shasum -a 256 "$artifact_name" > "$artifact_name.sha256"
+    )
+    echo "Created $artifact.sha256"
+  fi
+done
