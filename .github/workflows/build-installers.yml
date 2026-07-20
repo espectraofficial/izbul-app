@@ -50,7 +50,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Verify macOS update signing key
+        env:
+          IZBUL_UPDATE_PRIVATE_KEY: ${{ secrets.IZBUL_UPDATE_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$IZBUL_UPDATE_PRIVATE_KEY" ]]; then
+            echo "Repository secret IZBUL_UPDATE_PRIVATE_KEY is required."
+            exit 1
+          fi
+
       - name: Build macOS installer
+        env:
+          IZBUL_UPDATE_PRIVATE_KEY: ${{ secrets.IZBUL_UPDATE_PRIVATE_KEY }}
         run: bash scripts/build_macos.sh
 
       - name: Upload macOS artifact
@@ -85,3 +96,39 @@ jobs:
         with:
           name: Izbul-Windows
           path: release/windows/*
+
+  release:
+    name: Publish GitHub Release
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    needs:
+      - macos
+      - windows
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: Izbul-macOS
+          path: release-assets
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: Izbul-Windows
+          path: release-assets
+
+      - name: Create release and upload installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --title "İzbul $GITHUB_REF_NAME" \
+              --generate-notes
+          fi
+
+          gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber

@@ -29,13 +29,25 @@ def test_packaging_files_read_version_instead_of_hardcoding_it():
         encoding="utf-8"
     )
     app_spec = (ROOT / "app.spec").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github/workflows/build-installers.yml").read_text(
+        encoding="utf-8"
+    )
 
     assert "< VERSION" in macos_script
     assert "Get-Content $VersionFile" in windows_script
     assert "/DMyAppVersion=$AppVersion" in windows_script
     assert "#ifndef MyAppVersion" in inno_setup
     assert "Path('VERSION').read_text" in app_spec
-    assert "datas=[('VERSION', '.')]" in app_spec
+    assert "('VERSION', '.')" in app_spec
+    assert "('packaging/update_public_key.txt', '.')" in app_spec
+    assert '--add-data "$PWD/VERSION:."' in macos_script
+    assert '--add-data "$PWD/packaging/update_public_key.txt:."' in macos_script
+    assert 'ZIP_NAME="Izbul-macOS.zip"' in macos_script
+    assert "scripts/sign_update.py" in macos_script
+    assert "secrets.IZBUL_UPDATE_PRIVATE_KEY" in workflow
+    assert "actions/download-artifact@v8" in workflow
+    assert "gh release upload" in workflow
+    assert "contents: write" in workflow
 
 
 def test_invalid_version_file_is_rejected(monkeypatch, tmp_path):

@@ -10,7 +10,10 @@ a = Analysis(
     ['ui/app.py'],
     pathex=[],
     binaries=[],
-    datas=[('VERSION', '.')],
+    datas=[
+        ('VERSION', '.'),
+        ('packaging/update_public_key.txt', '.'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

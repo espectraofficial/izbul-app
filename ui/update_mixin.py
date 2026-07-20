@@ -19,6 +19,9 @@ from ui.config import (
 from ui.storage import get_app_data_dir
 from ui.versioning import is_newer_version
 
+if sys.platform == "darwin":
+    from ui.macos_updater import launch_macos_update, verify_update_signature
+
 
 logger = logging.getLogger(__name__)
 
@@ -181,8 +184,8 @@ class UpdateMixin:
         if sys.platform == "darwin":
 
             preferred_asset_groups = [
-                ["macOS", "dmg"],
-                ["macOS", "zip"]
+                ["macOS", "zip"],
+                ["macOS", "dmg"]
             ]
 
         elif sys.platform.startswith("win"):
@@ -236,6 +239,8 @@ class UpdateMixin:
 
         checksum_url = ""
         checksum_asset_name = ""
+        signature_url = ""
+        signature_asset_name = ""
 
         if selected_asset and asset_name:
             checksum_names = {
@@ -254,6 +259,21 @@ class UpdateMixin:
                     ).strip()
                     break
 
+            signature_names = {
+                f"{asset_name}.sig".lower(),
+                f"{asset_name}.signature".lower(),
+            }
+
+            for asset in assets:
+                candidate_name = str(asset.get("name", ""))
+
+                if candidate_name.lower() in signature_names:
+                    signature_asset_name = candidate_name
+                    signature_url = str(
+                        asset.get("browser_download_url", "")
+                    ).strip()
+                    break
+
         return {
             "version": tag_name,
             "url": html_url,
@@ -264,6 +284,8 @@ class UpdateMixin:
             ) if selected_asset else 0,
             "checksum_url": checksum_url,
             "checksum_asset_name": checksum_asset_name,
+            "signature_url": signature_url,
+            "signature_asset_name": signature_asset_name,
             "release_notes": str(release.get("body", "") or "").strip(),
         }
 
@@ -362,6 +384,13 @@ class UpdateMixin:
         checksum_url = str(
             release_info.get("checksum_url", "")
         ).strip()
+        signature_url = str(
+            release_info.get("signature_url", "")
+        ).strip()
+        is_macos_self_update = (
+            sys.platform == "darwin"
+            and str(release_info.get("asset_name", "")).lower().endswith(".zip")
+        )
 
         if not download_url or download_url == release_url:
 
@@ -374,6 +403,20 @@ class UpdateMixin:
         if not checksum_url:
             message = (
                 "Checksum bulunamadı; güvenli indirme için "
+                "release sayfası açılıyor."
+            )
+
+            if status_callback:
+                status_callback(message, "#C0392B")
+            else:
+                self.show_toast(message, "#C0392B")
+
+            webbrowser.open(release_url or GITHUB_RELEASES_URL)
+            return False
+
+        if is_macos_self_update and not signature_url:
+            message = (
+                "Dijital imza bulunamadı; güvenli güncelleme için "
                 "release sayfası açılıyor."
             )
 
@@ -440,6 +483,25 @@ class UpdateMixin:
                         "#1F6AA5"
                     )
                 )
+
+                if is_macos_self_update:
+                    signature_response = requests.get(signature_url, timeout=10)
+                    signature_response.raise_for_status()
+                    verify_update_signature(
+                        target_file,
+                        signature_response.text,
+                    )
+
+                    set_status(
+                        "Güncelleme doğrulandı. İzbul yeniden başlatılıyor...",
+                        "#27AE60"
+                    )
+                    launch_macos_update(
+                        target_file,
+                        release_info.get("version", ""),
+                    )
+                    self.after(500, self.destroy)
+                    return
 
                 set_status(
                     "Güncelleme indirildi. Kurulum açılıyor...",
@@ -546,7 +608,12 @@ class UpdateMixin:
             text=(
                 f"Kurulu sürüm: {APP_VERSION}\n"
                 f"Yeni sürüm: {latest_version}\n\n"
-                "Güncelleme dosyası indirilecek ve kurulum açılacak."
+                + (
+                    "İzbul güvenli şekilde güncellenecek ve yeniden açılacak."
+                    if sys.platform == "darwin"
+                    and str(release_info.get("asset_name", "")).lower().endswith(".zip")
+                    else "Güncelleme dosyası indirilecek ve kurulum açılacak."
+                )
             ),
             justify="center",
             text_color="#D8DEE9",

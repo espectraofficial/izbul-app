@@ -1,6 +1,9 @@
 import hashlib
+import base64
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from ui import update_mixin
 from ui.update_mixin import (
@@ -8,6 +11,7 @@ from ui.update_mixin import (
     download_verified_file,
     parse_sha256_checksum,
 )
+from ui.macos_updater import find_running_app_bundle, verify_update_signature
 
 
 class FakeResponse:
@@ -52,6 +56,23 @@ def test_get_latest_release_includes_checksum_size_and_notes(monkeypatch):
         "body": "Hata düzeltmeleri ve performans iyileştirmeleri.",
         "assets": [
             {
+                "name": "Izbul-macOS.zip",
+                "browser_download_url": "https://example.test/Izbul-macOS.zip",
+                "size": 12000,
+            },
+            {
+                "name": "Izbul-macOS.zip.sha256",
+                "browser_download_url": (
+                    "https://example.test/Izbul-macOS.zip.sha256"
+                ),
+                "size": 90,
+            },
+            {
+                "name": "Izbul-macOS.zip.sig",
+                "browser_download_url": "https://example.test/Izbul-macOS.zip.sig",
+                "size": 89,
+            },
+            {
                 "name": "Izbul-macOS.dmg",
                 "browser_download_url": "https://example.test/Izbul-macOS.dmg",
                 "size": 12345,
@@ -75,10 +96,12 @@ def test_get_latest_release_includes_checksum_size_and_notes(monkeypatch):
 
     info = UpdateMixin().get_latest_release()
 
-    assert info["asset_name"] == "Izbul-macOS.dmg"
-    assert info["asset_size"] == 12345
-    assert info["checksum_asset_name"] == "Izbul-macOS.dmg.sha256"
+    assert info["asset_name"] == "Izbul-macOS.zip"
+    assert info["asset_size"] == 12000
+    assert info["checksum_asset_name"] == "Izbul-macOS.zip.sha256"
     assert info["checksum_url"].endswith(".sha256")
+    assert info["signature_asset_name"] == "Izbul-macOS.zip.sig"
+    assert info["signature_url"].endswith(".sig")
     assert info["release_notes"].startswith("Hata düzeltmeleri")
 
 
@@ -176,3 +199,69 @@ def test_automatic_download_is_refused_without_checksum(monkeypatch):
     assert started is False
     assert "Checksum bulunamadı" in updater.toast[0]
     assert opened_urls == ["https://example.test/releases/v1.0.2"]
+
+
+def test_macos_zip_is_refused_without_digital_signature(monkeypatch):
+    opened_urls = []
+
+    class DummyUpdater(UpdateMixin):
+        latest_release_info = None
+
+        def show_toast(self, message, color):
+            self.toast = (message, color)
+
+    monkeypatch.setattr(update_mixin.sys, "platform", "darwin")
+    monkeypatch.setattr(update_mixin.webbrowser, "open", opened_urls.append)
+    updater = DummyUpdater()
+
+    started = updater.start_update_download(
+        {
+            "url": "https://example.test/releases/v1.0.2",
+            "download_url": "https://example.test/Izbul-macOS.zip",
+            "asset_name": "Izbul-macOS.zip",
+            "checksum_url": "https://example.test/Izbul-macOS.zip.sha256",
+            "signature_url": "",
+        }
+    )
+
+    assert started is False
+    assert "Dijital imza bulunamadı" in updater.toast[0]
+    assert opened_urls == ["https://example.test/releases/v1.0.2"]
+
+
+def test_ed25519_signature_verifies_archive_digest(tmp_path):
+    archive = tmp_path / "Izbul-macOS.zip"
+    archive.write_bytes(b"signed update archive")
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    public_key_file = tmp_path / "update_public_key.txt"
+    public_key_file.write_text(
+        base64.b64encode(public_key).decode("ascii"),
+        encoding="ascii",
+    )
+    signature = private_key.sign(hashlib.sha256(archive.read_bytes()).digest())
+
+    assert verify_update_signature(
+        archive,
+        base64.b64encode(signature).decode("ascii"),
+        public_key_file,
+    )
+
+    archive.write_bytes(b"tampered update archive")
+    with pytest.raises(ValueError, match="dijital imzası"):
+        verify_update_signature(
+            archive,
+            base64.b64encode(signature).decode("ascii"),
+            public_key_file,
+        )
+
+
+def test_running_app_bundle_is_found_from_pyinstaller_executable(tmp_path):
+    executable = tmp_path / "Izbul.app" / "Contents" / "MacOS" / "Izbul"
+    executable.parent.mkdir(parents=True)
+    executable.touch()
+
+    assert find_running_app_bundle(executable) == tmp_path / "Izbul.app"

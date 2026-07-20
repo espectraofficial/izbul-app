@@ -144,24 +144,38 @@ Build outputs are created under `dist/`.
 Distribution outputs:
 
 - macOS: `release/macos/Izbul-macOS.dmg`
-- macOS fallback: `release/macos/Izbul-macOS.zip`
+- macOS in-app update: `release/macos/Izbul-macOS.zip`
+- macOS update signature: `release/macos/Izbul-macOS.zip.sig`
 - Windows: `release/windows/Izbul-Windows-Setup.exe`
 - SHA-256 checksums: installer adının sonuna `.sha256` eklenmiş dosya
 
-GitHub Actions can build both installers from the **Build Installers** workflow. Run it manually from the Actions tab, then download the generated artifacts.
+GitHub Actions can build both installers from the **Build Installers** workflow.
+Manual runs keep the packages as workflow artifacts. Pushing a version tag that
+matches `VERSION` additionally creates or updates the corresponding GitHub
+Release and uploads every installer, checksum, and update signature automatically.
 
-Bir GitHub Release yayınlarken installer ile ona ait `.sha256` dosyasını birlikte
-Release assets alanına yükleyin. Checksum bulunmayan veya doğrulanamayan bir
-installer İzbul tarafından otomatik olarak çalıştırılmaz.
+Bir GitHub Release yayınlarken DMG, macOS ZIP, ZIP imzası ve ilgili `.sha256`
+dosyalarını birlikte Release assets alanına yükleyin. Checksum veya dijital
+imzası bulunmayan bir macOS güncellemesi İzbul tarafından otomatik kurulmaz.
+
+macOS güncelleme ZIP'i Ed25519 ile imzalanır. Yerel özel anahtar
+`.secrets/update_private_key.pem` altında tutulur ve `.gitignore` tarafından
+Git'e alınmaz. GitHub Actions build'lerinin de imza üretebilmesi için dosyanın
+tam içeriğini repository secret olarak `IZBUL_UPDATE_PRIVATE_KEY` adıyla ekleyin.
+Repoda yalnızca uygulamanın imzayı doğrulamakta kullandığı açık anahtar bulunur.
 
 ## Updates
 
 İzbul checks the latest GitHub Release on startup and from the Settings screen.
-When a newer release is available, the app can download the matching macOS or
-Windows installer, open it, and close the running app so the user can continue
-with installation. Downloads are written to a temporary `.part` file and are
-opened only after their size and SHA-256 checksum have been verified. The update
-window also displays the release notes published on GitHub.
+On macOS, the app downloads the signed ZIP update, verifies its size, SHA-256
+checksum, Ed25519 signature, bundle identifier, version, and code integrity. It
+then closes İzbul, replaces the installed app with rollback protection, and
+relaunches the new version. User data under Application Support is preserved.
+The first unsigned installation still requires the normal one-time Gatekeeper
+approval; later in-app updates do not require opening or dragging a new DMG.
+
+Windows continues to download and open its verified installer. The update
+window displays the release notes published on GitHub on both platforms.
 
 ```md
 © 2026 Ümit Ege Güldez. Tüm hakları saklıdır. İzbul kaynak kodu, uygulama adı, tasarımı ve dağıtım paketleri izinsiz kopyalanamaz, değiştirilemez, yeniden dağıtılamaz veya sahiplenilemez.

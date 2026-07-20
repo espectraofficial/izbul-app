@@ -13,11 +13,13 @@ fi
 
 DMG_NAME="Izbul-macOS.dmg"
 DMG_RW_NAME="Izbul-macOS-rw.dmg"
+ZIP_NAME="Izbul-macOS.zip"
 PYINSTALLER_CONFIG_DIR="$PWD/build/pyinstaller-cache"
 ICON_PATH="$PWD/icon.icns"
 ENTITLEMENTS_PATH="$PWD/packaging/macos/entitlements.plist"
 MACOS_CODESIGN_IDENTITY="${MACOS_CODESIGN_IDENTITY:-}"
 MACOS_NOTARY_PROFILE="${MACOS_NOTARY_PROFILE:-}"
+UPDATE_PRIVATE_KEY_FILE="${IZBUL_UPDATE_PRIVATE_KEY_FILE:-$PWD/.secrets/update_private_key.pem}"
 export PYINSTALLER_CONFIG_DIR
 
 detect_codesign_identity() {
@@ -101,7 +103,8 @@ pyinstaller \
   --windowed \
   --name "$APP_NAME" \
   --icon "$ICON_PATH" \
-  --add-data "VERSION:." \
+  --add-data "$PWD/VERSION:." \
+  --add-data "$PWD/packaging/update_public_key.txt:." \
   --osx-bundle-identifier "com.umitegeguldez.izbul" \
   --collect-data customtkinter \
   --collect-data PIL \
@@ -127,6 +130,27 @@ xattr -cr "dist/$APP_NAME.app" 2>/dev/null || true
 sign_app_bundle
 
 mkdir -p release/macos
+
+ditto \
+  -c \
+  -k \
+  --keepParent \
+  "dist/$APP_NAME.app" \
+  "release/macos/$ZIP_NAME"
+
+echo "Created release/macos/$ZIP_NAME"
+
+if [ -n "${IZBUL_UPDATE_PRIVATE_KEY:-}" ]; then
+  python3 scripts/sign_update.py "release/macos/$ZIP_NAME"
+elif [ -f "$UPDATE_PRIVATE_KEY_FILE" ]; then
+  python3 scripts/sign_update.py \
+    "release/macos/$ZIP_NAME" \
+    --key-file "$UPDATE_PRIVATE_KEY_FILE"
+else
+  echo "WARNING: macOS update ZIP is unsigned and cannot be installed in-app." >&2
+  echo "Set IZBUL_UPDATE_PRIVATE_KEY or IZBUL_UPDATE_PRIVATE_KEY_FILE." >&2
+fi
+
 rm -rf build/dmg
 mkdir -p build/dmg/.background
 cp -R "dist/$APP_NAME.app" "build/dmg/$APP_NAME.app"
@@ -348,17 +372,7 @@ if [ "$DMG_CREATED" = true ]; then
 else
 
   create_basic_dmg || {
-
-    ZIP_NAME="Izbul-macOS.zip"
-
-    ditto \
-      -c \
-      -k \
-      --keepParent \
-      "dist/$APP_NAME.app" \
-      "release/macos/$ZIP_NAME"
-
-    echo "DMG creation failed. Created release/macos/$ZIP_NAME instead."
+    echo "DMG creation failed. Signed ZIP remains available for distribution."
   }
 
   if [ -f "release/macos/$DMG_NAME" ]; then
@@ -369,7 +383,7 @@ fi
 
 for artifact in \
   "release/macos/$DMG_NAME" \
-  "release/macos/${ZIP_NAME:-Izbul-macOS.zip}"
+  "release/macos/$ZIP_NAME"
 do
   if [ -f "$artifact" ]; then
     artifact_dir="$(dirname "$artifact")"
