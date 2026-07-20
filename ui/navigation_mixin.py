@@ -253,13 +253,46 @@ class NavigationMixin:
 
     def get_view_state_signature(self, state):
 
+        def job_identity(job):
+
+            if isinstance(job, dict):
+
+                getter = job.get
+
+            else:
+
+                getter = lambda key, default="": getattr(
+                    job,
+                    key,
+                    default
+                )
+
+            return (
+                str(getter("url", "") or getter("apply_url", "")),
+                str(getter("title", "")),
+                str(getter("company", ""))
+            )
+
         return (
             state.get("view_mode"),
             state.get("current_page"),
-            len(state.get("filtered_jobs", [])),
-            len(state.get("all_jobs", [])),
+            tuple(
+                job_identity(job)
+                for job in state.get("filtered_jobs", [])
+            ),
+            tuple(
+                job_identity(job)
+                for job in state.get("all_jobs", [])
+            ),
             state.get("last_status_message", ""),
-            state.get("search_summary_message", "")
+            state.get("search_summary_message", ""),
+            state.get("keyword", ""),
+            state.get("city", ""),
+            tuple(state.get("selected_sources", [])),
+            tuple(state.get("selected_application_statuses", [])),
+            tuple(state.get("selected_experiences", [])),
+            tuple(state.get("selected_remote", [])),
+            state.get("sort_type", "Varsayılan")
         )
 
     def update_back_button_state(self):
@@ -399,13 +432,11 @@ class NavigationMixin:
             )
         )
 
-        if selected_sources:
+        for source, var in self.source_vars.items():
 
-            for source, var in self.source_vars.items():
-
-                var.set(
-                    source in selected_sources
-                )
+            var.set(
+                source in selected_sources
+            )
 
         selected_statuses = state.get(
             "selected_application_statuses",
