@@ -1,11 +1,16 @@
+import logging
 import threading
 import webbrowser
 from urllib.parse import quote_plus
 
 import customtkinter as ctk
 
+from ui.search_cache import load_cached_search, save_cached_search
 from ui.storage import save_settings
 from utils.search_engine import SOURCE_KEY_BY_SITE, normalize_text, smart_search
+
+
+logger = logging.getLogger(__name__)
 
 
 class SearchMixin:
@@ -320,6 +325,12 @@ class SearchMixin:
         )
 
         self.reset_source_progress(
+            selected_sources
+        )
+
+        self.show_cached_search_preview(
+            keyword,
+            selected_city,
             selected_sources
         )
 
@@ -642,6 +653,37 @@ class SearchMixin:
 
             return
 
+        source_errors = search_report.get("source_errors", {})
+        all_sources_failed = bool(selected_sources) and all(
+            source in source_errors
+            for source in selected_sources
+        )
+
+        if (
+            not jobs
+            and self.active_cached_search
+            and all_sources_failed
+        ):
+            jobs = self.active_cached_search["jobs"]
+            self.cache_preview_active = True
+            self.cache_refresh_failed = True
+
+        else:
+            self.cache_preview_active = False
+            self.cache_refresh_failed = False
+
+            if jobs:
+                try:
+                    save_cached_search(
+                        keyword,
+                        selected_city,
+                        selected_sources,
+                        jobs,
+                        search_report=search_report
+                    )
+                except Exception:
+                    logger.exception("Arama önbelleği kaydedilemedi")
+
         self.last_search_report = search_report
         self.all_jobs = jobs
         self.filtered_jobs = jobs
@@ -651,6 +693,7 @@ class SearchMixin:
             selected_sources,
             search_report
         )
+        self.active_cached_search = None
 
         self.after(
             0,
@@ -718,7 +761,38 @@ class SearchMixin:
                 )
             )
 
+        if getattr(self, "cache_preview_active", False):
+
+            if getattr(self, "cache_refresh_failed", False):
+                summary += " Kaynaklar yenilenemedi; önbellekteki sonuçlar gösteriliyor."
+            else:
+                summary += " Önbellekten gösteriliyor; kaynaklar yenileniyor."
+
         return summary
+
+    def show_cached_search_preview(self, keyword, city, selected_sources):
+
+        cached_search = load_cached_search(
+            keyword,
+            city,
+            selected_sources
+        )
+
+        self.active_cached_search = cached_search
+
+        if not cached_search:
+            self.cache_preview_active = False
+            self.cache_refresh_failed = False
+            return False
+
+        self.cache_preview_active = True
+        self.cache_refresh_failed = False
+        self.last_search_report = cached_search["search_report"]
+        self.all_jobs = cached_search["jobs"]
+        self.filtered_jobs = cached_search["jobs"]
+        self.current_page = 1
+        self.apply_filters()
+        return True
 
     def after_search_complete(self, search_token=None):
 

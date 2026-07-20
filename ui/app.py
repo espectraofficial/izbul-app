@@ -123,6 +123,9 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         self.update_check_in_progress = False
         self.search_in_progress = False
         self.search_token = 0
+        self.active_cached_search = None
+        self.cache_preview_active = False
+        self.cache_refresh_failed = False
         self.view_mode = "home"
         self.navigation_history = []
         self.update_back_button_state()

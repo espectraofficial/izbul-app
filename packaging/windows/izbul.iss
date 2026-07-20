@@ -1,5 +1,7 @@
 #define MyAppName "İzbul"
-#define MyAppVersion "1.0.1"
+#ifndef MyAppVersion
+  #error MyAppVersion must be provided by scripts/build_windows.ps1
+#endif
 #define MyAppPublisher "Ümit Ege Güldez"
 #define MyAppExeName "Izbul.exe"
 #define SourceDir "..\..\dist\Izbul"

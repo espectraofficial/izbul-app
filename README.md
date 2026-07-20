@@ -91,7 +91,7 @@ python -m pytest
 The project is packaged separately on macOS and Windows. Use the generated files under `release/` for distribution.
 
 - App name: `İzbul`
-- Version: `1.0.1`
+- Version: see the root [`VERSION`](VERSION) file
 - Creator / Publisher: `Ümit Ege Güldez`
 - macOS bundle identifier: `com.umitegeguldez.izbul`
 - Technical bundle / executable name: `Izbul`

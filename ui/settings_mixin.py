@@ -8,6 +8,7 @@ import customtkinter as ctk
 from scrapers.jooble import get_jooble_api_key, save_jooble_api_key, search_jooble
 from ui.config import APP_VERSION, DEFAULT_SETTINGS, get_theme_label, get_theme_value
 from ui.diagnostics import build_diagnostic_archive
+from ui.search_cache import clear_search_cache
 from ui.storage import get_app_data_dir, save_settings
 
 
@@ -622,6 +623,42 @@ class SettingsMixin:
         )
 
         data_path_label.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 8)
+        )
+
+        def clear_cached_searches():
+
+            try:
+                removed = clear_search_cache()
+                set_settings_status(
+                    (
+                        "Arama önbelleği temizlendi."
+                        if removed
+                        else "Arama önbelleği zaten boş."
+                    ),
+                    "#27AE60"
+                )
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "Arama önbelleği temizlenemedi"
+                )
+                set_settings_status(
+                    "Arama önbelleği temizlenemedi.",
+                    "#C0392B"
+                )
+
+        cache_button = ctk.CTkButton(
+            container,
+            text="Arama Önbelleğini Temizle",
+            height=38,
+            fg_color="#3A3A3A",
+            hover_color="#4A4A4A",
+            command=clear_cached_searches
+        )
+
+        cache_button.pack(
             fill="x",
             padx=22,
             pady=(0, 8)

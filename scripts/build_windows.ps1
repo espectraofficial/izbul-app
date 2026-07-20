@@ -1,6 +1,13 @@
 $ErrorActionPreference = "Stop"
 
 $AppName = "Izbul"
+$VersionFile = Join-Path $PSScriptRoot "..\VERSION"
+$AppVersion = (Get-Content $VersionFile -Raw).Trim()
+
+if ($AppVersion -notmatch '^\d+\.\d+\.\d+$') {
+  throw "VERSION must use major.minor.patch format: $AppVersion"
+}
+
 $env:PYINSTALLER_CONFIG_DIR = "$PWD\build\pyinstaller-cache"
 $IconPath = "$PWD\icon.ico"
 
@@ -20,6 +27,7 @@ pyinstaller `
   --windowed `
   --name $AppName `
   --icon $IconPath `
+  --add-data "$PWD\VERSION;." `
   --collect-data customtkinter `
   --collect-data PIL `
   --workpath build\work `
@@ -32,7 +40,7 @@ New-Item -ItemType Directory -Force -Path release\windows | Out-Null
 $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 
 if ($iscc) {
-  & $iscc.Source packaging\windows\izbul.iss
+  & $iscc.Source "/DMyAppVersion=$AppVersion" packaging\windows\izbul.iss
   Write-Host "Created release\windows\Izbul-Windows-Setup.exe"
 } else {
   Compress-Archive -Path "dist\$AppName\*" -DestinationPath "release\windows\Izbul-Windows.zip" -Force

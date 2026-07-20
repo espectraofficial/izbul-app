@@ -124,7 +124,12 @@ SOURCE_KEY_BY_SITE = {
 
 def normalize_text(value):
 
-    text = str(value or "").strip().lower()
+    text = (
+        str(value or "")
+        .strip()
+        .lower()
+        .replace("ı", "i")
+    )
 
     normalized = unicodedata.normalize(
         "NFKD",

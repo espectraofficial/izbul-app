@@ -4,7 +4,13 @@ set -euo pipefail
 APP_NAME="Izbul"
 DISPLAY_NAME="İzbul"
 DMG_VOLUME_NAME="Izbul"
-APP_VERSION="1.0.1"
+APP_VERSION="$(tr -d '[:space:]' < VERSION)"
+
+if [[ ! "$APP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "VERSION must use major.minor.patch format: $APP_VERSION" >&2
+  exit 1
+fi
+
 DMG_NAME="Izbul-macOS.dmg"
 DMG_RW_NAME="Izbul-macOS-rw.dmg"
 PYINSTALLER_CONFIG_DIR="$PWD/build/pyinstaller-cache"
@@ -95,6 +101,7 @@ pyinstaller \
   --windowed \
   --name "$APP_NAME" \
   --icon "$ICON_PATH" \
+  --add-data "VERSION:." \
   --osx-bundle-identifier "com.umitegeguldez.izbul" \
   --collect-data customtkinter \
   --collect-data PIL \

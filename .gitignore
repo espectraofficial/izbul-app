@@ -17,6 +17,7 @@ build/
 dist/
 release/
 *.spec
+!app.spec
 
 browser_profile/
 

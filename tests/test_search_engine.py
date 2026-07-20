@@ -4,7 +4,7 @@ from utils.search_engine import deduplicate_jobs, normalize_text
 
 def test_normalize_text_removes_turkish_diacritics():
 
-    assert normalize_text("İnsan Kaynakları Şefi") == "insan kaynakları sefi"
+    assert normalize_text("İnsan Kaynakları Şefi") == "insan kaynaklari sefi"
 
 
 def test_deduplicate_jobs_uses_title_company_and_location():

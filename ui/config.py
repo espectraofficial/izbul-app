@@ -1,5 +1,45 @@
+import re
+import sys
+from pathlib import Path
+
+
 APP_NAME = "İzbul"
-APP_VERSION = "1.0.1"
+
+
+def get_version_file():
+    bundle_dir = getattr(sys, "_MEIPASS", None)
+
+    if bundle_dir:
+        bundled_version = Path(bundle_dir) / "VERSION"
+
+        if bundled_version.exists():
+            return bundled_version
+
+    return Path(__file__).resolve().parent.parent / "VERSION"
+
+
+def load_app_version():
+    version_file = get_version_file()
+
+    try:
+        version = version_file.read_text(encoding="utf-8").strip()
+    except OSError as error:
+        raise RuntimeError(
+            f"Uygulama sürüm dosyası okunamadı: {version_file}"
+        ) from error
+
+    if not version:
+        raise RuntimeError("Uygulama sürümü boş olamaz.")
+
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        raise RuntimeError(
+            "Uygulama sürümü major.minor.patch biçiminde olmalı."
+        )
+
+    return version
+
+
+APP_VERSION = load_app_version()
 LEGACY_APP_NAME = "Job Finder"
 
 GITHUB_REPO = "espectraofficial/izbul-app"
