@@ -1,9 +1,12 @@
 import customtkinter as ctk
 import tkinter as tk
+import logging
 import threading
 import math
 import queue
 import webbrowser
+from datetime import datetime
+from tkinter import filedialog
 from urllib.parse import quote_plus
 
 from scrapers.jooble import (
@@ -21,6 +24,7 @@ from ui.config import (
     get_theme_value
 )
 from ui.favorites_mixin import FavoritesMixin
+from ui.diagnostics import build_diagnostic_archive, configure_logging
 from ui.job_details_mixin import JobDetailsMixin
 from ui.formatters import (
     format_card_location,
@@ -2427,7 +2431,60 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
         data_path_label.pack(
             fill="x",
             padx=22,
-            pady=(0, 12)
+            pady=(0, 8)
+        )
+
+        def export_diagnostic_report():
+
+            default_name = (
+                "Izbul-tanilama-"
+                + datetime.now().strftime("%Y%m%d-%H%M%S")
+                + ".zip"
+            )
+
+            destination = filedialog.asksaveasfilename(
+                parent=settings_window,
+                title="Tanılama Raporunu Kaydet",
+                initialfile=default_name,
+                defaultextension=".zip",
+                filetypes=[("ZIP arşivi", "*.zip")]
+            )
+
+            if not destination:
+
+                return
+
+            try:
+
+                build_diagnostic_archive(destination)
+                set_settings_status(
+                    "Tanılama raporu dışa aktarıldı.",
+                    "#27AE60"
+                )
+
+            except Exception as error:
+
+                logging.getLogger(__name__).exception(
+                    "Tanılama raporu dışa aktarılamadı"
+                )
+                set_settings_status(
+                    f"Tanılama raporu oluşturulamadı: {error}",
+                    "#C0392B"
+                )
+
+        diagnostics_button = ctk.CTkButton(
+            container,
+            text="Tanılama Raporunu Dışa Aktar",
+            height=38,
+            fg_color="#3A3A3A",
+            hover_color="#4A4A4A",
+            command=export_diagnostic_report
+        )
+
+        diagnostics_button.pack(
+            fill="x",
+            padx=22,
+            pady=(0, 16)
         )
 
         ownership_frame = ctk.CTkFrame(
@@ -4888,6 +4945,8 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
 
 if __name__ == "__main__":
+
+    configure_logging()
 
     app = JobApp()
 

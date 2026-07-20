@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import sys
@@ -15,6 +16,9 @@ from ui.config import (
 )
 from ui.storage import get_app_data_dir
 from ui.versioning import is_newer_version
+
+
+logger = logging.getLogger(__name__)
 
 
 class UpdateMixin:
@@ -350,7 +354,7 @@ class UpdateMixin:
 
             except Exception as e:
 
-                print("Güncelleme indirilemedi:", e)
+                logger.exception("Güncelleme indirilemedi")
 
                 set_status(
                     "Güncelleme indirilemedi. Release sayfası açılıyor.",
@@ -567,7 +571,7 @@ class UpdateMixin:
 
         self.update_check_in_progress = False
 
-        print("Güncelleme kontrolü başarısız:", error)
+        logger.error("Güncelleme kontrolü başarısız: %s", error)
 
         if not silent:
 

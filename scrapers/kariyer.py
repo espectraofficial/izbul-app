@@ -1,4 +1,5 @@
 import html
+import logging
 import re
 
 import requests
@@ -8,6 +9,9 @@ from utils.job_parser import (
     parse_remote,
     parse_experience
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def clean_detail_text(value):
@@ -215,10 +219,7 @@ def search_kariyer(
 
                 raise
 
-            print(
-                "Kariyer request hata:",
-                e
-            )
+            logger.exception("Kariyer.net isteği başarısız")
 
             break
 
@@ -341,10 +342,7 @@ def search_kariyer(
 
             except Exception as e:
 
-                print(
-                    "Kariyer parse hata:",
-                    e
-                )
+                logger.exception("Kariyer.net ilanı ayrıştırılamadı")
 
                 continue
 

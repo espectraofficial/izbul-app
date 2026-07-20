@@ -1,4 +1,5 @@
 import html
+import logging
 import os
 import re
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ from utils.job_parser import (
 DEFAULT_API_HOST = "tr.jooble.org"
 APP_NAME = "İzbul"
 LEGACY_APP_NAME = "Job Finder"
+logger = logging.getLogger(__name__)
 
 
 def get_app_data_dir(app_name=APP_NAME):
@@ -64,7 +66,7 @@ def get_user_api_key_file():
 
         except Exception as e:
 
-            print("Eski Jooble API anahtarı taşınamadı:", e)
+            logger.exception("Eski Jooble API anahtarı taşınamadı")
 
     return current_file
 
@@ -101,7 +103,7 @@ def get_jooble_api_key():
 
         except Exception as e:
 
-            print("Jooble API anahtarı okunamadı:", e)
+            logger.exception("Jooble API anahtarı okunamadı")
 
     return ""
 
@@ -225,7 +227,7 @@ def search_jooble(
 
     if not api_key:
 
-        print("Jooble atlandı: API anahtarı yok.")
+        logger.warning("Jooble atlandı: API anahtarı yok")
 
         return []
 
@@ -259,7 +261,10 @@ def search_jooble(
 
             raise
 
-        print("Jooble request hata:", e)
+        logger.error(
+            "Jooble isteği başarısız (%s)",
+            type(e).__name__
+        )
 
         return []
 
@@ -318,7 +323,7 @@ def search_jooble(
 
         except Exception as e:
 
-            print("Jooble parse hata:", e)
+            logger.exception("Jooble ilanı ayrıştırılamadı")
 
             continue
 

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -8,6 +9,9 @@ from ui.config import (
     DEFAULT_SETTINGS,
     LEGACY_APP_NAME
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_app_data_dir(app_name=APP_NAME):
@@ -70,7 +74,7 @@ def migrate_legacy_app_data():
 
             except Exception as e:
 
-                print("Eski uygulama verisi taşınamadı:", e)
+                logger.exception("Eski uygulama verisi taşınamadı")
 
 
 def get_favorites_file():
@@ -143,7 +147,7 @@ def load_settings():
 
     except Exception as e:
 
-        print("Ayarlar yüklenemedi:", e)
+        logger.exception("Ayarlar yüklenemedi")
 
         return DEFAULT_SETTINGS.copy()
 
@@ -214,4 +218,4 @@ def migrate_legacy_favorites(favorites_file):
 
         except Exception as e:
 
-            print("Eski favoriler taşınamadı:", e)
+            logger.exception("Eski favoriler taşınamadı")

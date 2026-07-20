@@ -1,0 +1,19 @@
+{
+  "data": {
+    "jobs": {
+      "items": [
+        {
+          "jobUrl": "/is-ilani/acme-yazilim-gelistirme-uzmani-12345",
+          "companyName": "ACME Teknoloji A.S.",
+          "title": "Yazilim Gelistirme Uzmani",
+          "workModel": "Hibrit",
+          "positionLevel": "Uzman",
+          "allLocations": "Istanbul(Asya), Kocaeli",
+          "postingDate": "2026-07-18",
+          "jobDateText": "2 gun",
+          "squareLogoUrl": "/firma-logo/acme.png"
+        }
+      ]
+    }
+  }
+}

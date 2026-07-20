@@ -1,5 +1,6 @@
 import html
 import json
+import logging
 import re
 import unicodedata
 from html.parser import HTMLParser
@@ -15,6 +16,7 @@ from utils.job_parser import (
 
 
 BASE_URL = "https://www.eleman.net"
+logger = logging.getLogger(__name__)
 
 
 TURKISH_CHAR_MAP = str.maketrans(
@@ -789,14 +791,27 @@ def parse_company_location_description(raw_text, keyword=""):
 
         for segment in segments[1:3]:
 
-            cleaned_segment = re.split(
+            marker_match = re.search(
                 description_markers,
                 segment,
                 flags=re.IGNORECASE
-            )[0].strip()
+            )
+
+            if marker_match:
+
+                location_segment = segment[:marker_match.start()].strip()
+                description_segment = segment[marker_match.end():].strip()
+
+                if description_segment:
+
+                    description_parts.append(description_segment)
+
+            else:
+
+                location_segment = segment
 
             location_part, description_part = split_location_and_description(
-                cleaned_segment
+                location_segment
             )
 
             cleaned_segment = clean_location_segment(
@@ -1201,7 +1216,7 @@ def search_eleman(
 
                 raise
 
-            print("Eleman.net request hata:", e)
+            logger.exception("Eleman.net isteği başarısız")
 
             break
 

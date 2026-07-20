@@ -1,10 +1,15 @@
+import logging
+import unicodedata
+
 from scrapers.kariyer import search_kariyer
 from scrapers.eleman import search_eleman
 from scrapers.jooble import (
     get_jooble_api_key,
     search_jooble
 )
-import unicodedata
+
+
+logger = logging.getLogger(__name__)
 
 
 CITY_MAP = {
@@ -461,7 +466,7 @@ def smart_search(
                         message=message
                     )
 
-                    print("Kariyer hata:", e)
+                    logger.exception("Kariyer.net araması başarısız")
 
         if locations and "kariyer" not in source_errors:
 
@@ -527,10 +532,7 @@ def smart_search(
                 message=message
             )
 
-            print(
-                "Eleman.net hata:",
-                e
-            )
+            logger.exception("Eleman.net araması başarısız")
 
     # JOOBLE
     if "jooble" in selected_sources:
@@ -615,10 +617,7 @@ def smart_search(
                         message=message
                     )
 
-                    print(
-                        "Jooble hata:",
-                        e
-                    )
+                    logger.exception("Jooble araması başarısız")
 
             if "jooble" not in source_errors:
 

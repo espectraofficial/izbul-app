@@ -1,5 +1,6 @@
 import io
 import hashlib
+import logging
 import threading
 import webbrowser
 
@@ -16,6 +17,9 @@ from ui.formatters import (
     format_job_date_text,
     format_saved_at
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 LOGO_LOADING = object()
@@ -229,7 +233,7 @@ class JobDetailsMixin:
 
         except Exception as e:
 
-            print("Logo yüklenemedi:", e)
+            logger.exception("Logo yüklenemedi")
 
             self.logo_images[logo_url] = LOGO_FAILED
 
@@ -390,7 +394,7 @@ class JobDetailsMixin:
 
         except Exception as e:
 
-            print("Açıklama kutusu güncellenemedi:", e)
+            logger.exception("Açıklama kutusu güncellenemedi")
 
     def save_loaded_description(self, job, description):
 
@@ -451,7 +455,7 @@ class JobDetailsMixin:
 
             except Exception as e:
 
-                print("Kariyer detay açıklaması alınamadı:", e)
+                logger.exception("Kariyer detay açıklaması alınamadı")
 
                 self.after(
                     0,
@@ -520,7 +524,7 @@ class JobDetailsMixin:
 
             except Exception as e:
 
-                print("Eleman.net detay açıklaması alınamadı:", e)
+                logger.exception("Eleman.net detay açıklaması alınamadı")
 
                 self.after(
                     0,

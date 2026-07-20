@@ -1,3 +1,4 @@
+import logging
 import subprocess
 import sys
 from pathlib import Path
@@ -5,6 +6,9 @@ from pathlib import Path
 import customtkinter as ctk
 
 from ui.storage import save_settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class NavigationMixin:
@@ -166,7 +170,7 @@ class NavigationMixin:
 
             except Exception as e:
 
-                print("Disk imajı çıkarılamadı:", e)
+                logger.exception("Disk imajı çıkarılamadı")
 
                 self.show_toast(
                     "Disk imajı çıkarılamadı.",

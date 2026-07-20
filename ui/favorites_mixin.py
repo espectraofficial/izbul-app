@@ -1,5 +1,6 @@
 import csv
 import json
+import logging
 import os
 import webbrowser
 from pathlib import Path
@@ -12,6 +13,9 @@ from ui.formatters import (
     format_saved_at,
     get_current_timestamp
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class FavoritesMixin:
@@ -56,7 +60,7 @@ class FavoritesMixin:
 
         except Exception as e:
 
-            print("Favoriler kaydedilemedi:", e)
+            logger.exception("Favoriler kaydedilemedi")
 
         finally:
 
@@ -127,7 +131,7 @@ class FavoritesMixin:
 
         except Exception as e:
 
-            print("Favoriler yüklenemedi:", e)
+            logger.exception("Favoriler yüklenemedi")
 
             self.favorite_jobs = []
             self.rebuild_favorites_index()
@@ -156,7 +160,7 @@ class FavoritesMixin:
 
         except Exception as e:
 
-            print("Gizlenen ilanlar kaydedilemedi:", e)
+            logger.exception("Gizlenen ilanlar kaydedilemedi")
 
         finally:
 
@@ -191,7 +195,7 @@ class FavoritesMixin:
 
         except Exception as e:
 
-            print("Gizlenen ilanlar yüklenemedi:", e)
+            logger.exception("Gizlenen ilanlar yüklenemedi")
 
             self.hidden_jobs = []
             self.rebuild_hidden_jobs_index()
@@ -839,7 +843,7 @@ class FavoritesMixin:
 
         except Exception as e:
 
-            print("Favoriler dışa aktarılamadı:", e)
+            logger.exception("Favoriler dışa aktarılamadı")
 
             self.show_toast(
                 "Favoriler dışa aktarılamadı.",
