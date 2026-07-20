@@ -1,6 +1,8 @@
 import customtkinter as ctk
+import tkinter as tk
 import threading
 import math
+import queue
 import webbrowser
 from urllib.parse import quote_plus
 
@@ -34,12 +36,47 @@ from ui.storage import (
     save_settings
 )
 from ui.navigation_mixin import NavigationMixin
+from ui.results_view import ResultsView
+from ui.lightweight_widgets import (
+    create_fast_action,
+    create_fast_label,
+    get_results_palette
+)
 from ui.update_mixin import UpdateMixin
-from utils.search_engine import smart_search, normalize_text
+from utils.search_engine import (
+    SOURCE_KEY_BY_SITE,
+    SOURCE_SITE_BY_KEY,
+    smart_search,
+    normalize_text
+)
 
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
+
+EXPERIENCE_ASC_PRIORITY = {
+    "Stajyer": 0,
+    "Junior": 1,
+    "Mid-Level": 2,
+    "Senior": 3,
+    "Manager": 4,
+    "Director": 5
+}
+
+EXPERIENCE_DESC_PRIORITY = {
+    "Director": 0,
+    "Manager": 1,
+    "Senior": 2,
+    "Mid-Level": 3,
+    "Junior": 4,
+    "Stajyer": 5
+}
+
+REMOTE_PRIORITY = {
+    "Remote": 0,
+    "Hibrit": 1,
+    "Ofis": 2
+}
 
 
 class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.CTk):
@@ -115,7 +152,9 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
         self.toast_label = None
         self.settings = load_settings()
         self.logo_images = {}
-        self.logo_refresh_pending = False
+        self.logo_placeholder_images = {}
+        self.logo_labels_by_url = {}
+        self.logo_refresh_queue = queue.SimpleQueue()
 
         ctk.set_appearance_mode(
             self.settings.get(
@@ -957,6 +996,24 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
             pady=(0, 10)
         )
 
+        self.fast_results_container = ctk.CTkFrame(
+            self.right_content,
+            corner_radius=18,
+            fg_color=("#E3E3E3", "#292929")
+        )
+
+        self.fast_results_view = ResultsView(
+            self.fast_results_container,
+            self
+        )
+
+        self.fast_results_view.pack(
+            fill="both",
+            expand=True,
+            padx=8,
+            pady=8
+        )
+
         # =========================
         # PAGINATION
         # =========================
@@ -1033,6 +1090,11 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
         self.load_favorites()
         self.load_hidden_jobs()
 
+        self.after(
+            100,
+            self.poll_logo_refresh_queue
+        )
+
         self.show_welcome_screen()
 
         self.after(
@@ -1056,6 +1118,7 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
             self.status_label,
             self.source_progress_frame,
             self.results_frame,
+            self.fast_results_container,
             self.pagination_frame
         ]:
 
@@ -1075,6 +1138,7 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
             self.status_label,
             self.source_progress_frame,
             self.results_frame,
+            self.fast_results_container,
             self.pagination_frame
         ]:
 
@@ -1086,7 +1150,10 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
             pady=(0, 8)
         )
 
-        if self.view_mode == "results":
+        if (
+            self.view_mode == "results" and
+            self.source_progress_frame.winfo_children()
+        ):
 
             self.source_progress_frame.pack(
                 fill="x",
@@ -1094,14 +1161,21 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 pady=(0, 8)
             )
 
-        self.results_frame.pack(
-            fill="both",
-            expand=True,
-            pady=(0, 10)
+        results_widget = (
+            self.fast_results_container
+            if self.view_mode == "results"
+            else self.results_frame
         )
 
         self.pagination_frame.pack(
+            side="bottom",
             fill="x"
+        )
+
+        results_widget.pack(
+            fill="both",
+            expand=True,
+            pady=(0, 10)
         )
 
     def show_welcome_screen(self):
@@ -2502,6 +2576,12 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 theme_value
             )
 
+            if self.view_mode in [
+                "results",
+                "favorites"
+            ]:
+                self.display_jobs()
+
             self.city_entry.delete(
                 0,
                 "end"
@@ -3177,12 +3257,6 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
             "eleman": "Eleman.net"
         }
 
-        source_site_names = {
-            "kariyer": "Kariyer",
-            "jooble": "Jooble",
-            "eleman": "Eleman.net"
-        }
-
         search_report = search_report or {}
 
         counts = {
@@ -3192,17 +3266,17 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
         for job in jobs:
 
-            site = getattr(
-                job,
-                "site",
-                ""
+            source = SOURCE_KEY_BY_SITE.get(
+                getattr(
+                    job,
+                    "site",
+                    ""
+                )
             )
 
-            for source, site_name in source_site_names.items():
+            if source:
 
-                if site == site_name:
-
-                    counts[source] += 1
+                counts[source] += 1
 
         errors = search_report.get(
             "source_errors",
@@ -3252,18 +3326,6 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
         self.update_ui()
         self.apply_filters()
-
-    # =========================
-    # SAVE FAVORITES
-    # =========================
-
-    def safe_button_text(self, button, text):
-
-        try:
-            if button.winfo_exists():
-                button.configure(text=text)
-        except:
-            pass
 
     def auto_apply_filters(self):
 
@@ -3448,7 +3510,7 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                     )
                 ]
 
-            selected_application_statuses = (
+            selected_application_statuses = set(
                 self.get_selected_application_statuses()
             )
 
@@ -3471,7 +3533,7 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 if not self.is_hidden_job(job)
             ]
 
-            selected_application_statuses = (
+            selected_application_statuses = set(
                 self.get_selected_application_statuses()
             )
 
@@ -3514,14 +3576,14 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 )
             ]
 
-        selected_experiences = [
+        selected_experiences = {
 
             exp
 
             for exp, var in self.exp_vars.items()
 
             if var.get()
-        ]
+        }
 
         if selected_experiences:
 
@@ -3536,14 +3598,14 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 ) in selected_experiences
             ]
 
-        selected_remote = [
+        selected_remote = {
 
             remote
 
             for remote, var in self.remote_vars.items()
 
             if var.get()
-        ]
+        }
 
         if selected_remote:
 
@@ -3578,38 +3640,20 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
             )
         
         elif sort_type == "Junior Önce":
-            priority = {
-                "Stajyer": 0,
-                "Junior": 1,
-                "Mid-Level": 2,
-                "Senior": 3,
-                "Manager": 4,
-                "Director": 5
-            }
-
             filtered.sort(
 
                 key=lambda j:
-                priority.get(
+                EXPERIENCE_ASC_PRIORITY.get(
                     j.experience,
                     999
                 )
             )
 
         elif sort_type == "Senior Önce":
-            priority = {
-                "Director": 0,
-                "Manager": 1,
-                "Senior": 2,
-                "Mid-Level": 3,
-                "Junior": 4,
-                "Stajyer": 5
-            }
-
             filtered.sort(
 
                 key=lambda j:
-                priority.get(
+                EXPERIENCE_DESC_PRIORITY.get(
                     j.experience,
                     999
                 )
@@ -3617,16 +3661,10 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
         elif sort_type == "Remote Önce":
 
-            priority = {
-                "Remote": 0,
-                "Hibrit": 1,
-                "Ofis": 2
-            }
-
             filtered.sort(
 
                 key=lambda j:
-                priority.get(
+                REMOTE_PRIORITY.get(
                     j.remote,
                     999
                 )
@@ -3778,9 +3816,8 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
         if self.view_mode == "results":
 
             source_counts = {
-                "kariyer": 0,
-                "jooble": 0,
-                "eleman": 0
+                source: 0
+                for source in SOURCE_SITE_BY_KEY
             }
 
             source_labels = {
@@ -3789,25 +3826,19 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 "eleman": "Eleman.net"
             }
 
-            source_site_names = {
-                "kariyer": "Kariyer",
-                "jooble": "Jooble",
-                "eleman": "Eleman.net"
-            }
-
             for job in self.filtered_jobs:
 
-                site = getattr(
-                    job,
-                    "site",
-                    ""
+                source = SOURCE_KEY_BY_SITE.get(
+                    getattr(
+                        job,
+                        "site",
+                        ""
+                    )
                 )
 
-                for source, site_name in source_site_names.items():
+                if source:
 
-                    if site == site_name:
-
-                        source_counts[source] += 1
+                    source_counts[source] += 1
 
             for source, label in source_labels.items():
 
@@ -4114,6 +4145,11 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
     def scroll_results_to_top(self):
 
+        if self.view_mode == "results":
+
+            self.fast_results_view.scroll_to_top()
+            return
+
         try:
 
             self.results_frame.update_idletasks()
@@ -4139,8 +4175,16 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
             self.show_results_layout()
 
-        for widget in self.results_frame.winfo_children():
-            widget.destroy()
+        if self.view_mode == "results":
+
+            self.fast_results_view.clear()
+
+        else:
+
+            for widget in self.results_frame.winfo_children():
+                widget.destroy()
+
+        self.logo_labels_by_url = {}
 
         if scroll_to_top:
 
@@ -4175,6 +4219,19 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
         jobs = self.filtered_jobs[
             start:end
         ]
+
+        if self.view_mode == "results":
+
+            self.fast_results_view.render(
+                jobs,
+                get_results_palette()
+            )
+
+            self.update_pagination_controls(
+                total_pages
+            )
+
+            return
 
         self.render_list_header()
         self.render_favorites_dashboard()
@@ -4256,11 +4313,15 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
             return
 
+        palette = get_results_palette()
+
         for job in jobs:
 
-            card = ctk.CTkFrame(
+            card = tk.Frame(
                 self.results_frame,
-                corner_radius=18
+                bg=palette["card"],
+                borderwidth=0,
+                highlightthickness=0
             )
 
             card.pack(
@@ -4269,9 +4330,11 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 pady=10
             )
 
-            header_frame = ctk.CTkFrame(
+            header_frame = tk.Frame(
                 card,
-                fg_color="transparent"
+                bg=palette["card"],
+                borderwidth=0,
+                highlightthickness=0
             )
 
             header_frame.pack(
@@ -4280,11 +4343,13 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 pady=(18, 5)
             )
 
-            logo_frame = ctk.CTkFrame(
+            logo_frame = tk.Frame(
                 header_frame,
                 width=64,
                 height=64,
-                corner_radius=12
+                bg=palette["surface"],
+                borderwidth=0,
+                highlightthickness=0
             )
 
             logo_frame.pack(
@@ -4294,31 +4359,50 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
             logo_frame.pack_propagate(False)
 
             logo_image = self.get_logo_image(job)
+            logo_url = getattr(
+                job,
+                "logo_url",
+                ""
+            )
 
             if logo_image:
 
-                logo_label = ctk.CTkLabel(
+                logo_label = tk.Label(
                     logo_frame,
                     text="",
-                    image=logo_image
+                    image=logo_image,
+                    bg=palette["surface"],
+                    borderwidth=0,
+                    highlightthickness=0
                 )
 
             else:
 
-                logo_label = ctk.CTkLabel(
+                logo_label = create_fast_label(
                     logo_frame,
                     text=self.get_company_initials(job.company),
-                    font=("Arial", 18, "bold")
+                    background=palette["surface"],
+                    foreground=palette["text"],
+                    font=("Arial", 18, "bold"),
+                    anchor="center",
+                    justify="center"
                 )
+
+            self.register_logo_label(
+                logo_url,
+                logo_label
+            )
 
             logo_label.pack(
                 fill="both",
                 expand=True
             )
 
-            title_frame = ctk.CTkFrame(
+            title_frame = tk.Frame(
                 header_frame,
-                fg_color="transparent"
+                bg=palette["card"],
+                borderwidth=0,
+                highlightthickness=0
             )
 
             title_frame.pack(
@@ -4328,9 +4412,11 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 padx=(14, 0)
             )
 
-            title = ctk.CTkLabel(
+            title = create_fast_label(
                 title_frame,
                 text=job.title,
+                background=palette["card"],
+                foreground=palette["text"],
                 font=("Arial", 22, "bold"),
                 anchor="w",
                 justify="left",
@@ -4342,9 +4428,11 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 anchor="w"
             )
 
-            company = ctk.CTkLabel(
+            company = create_fast_label(
                 title_frame,
                 text=job.company,
+                background=palette["card"],
+                foreground=palette["text"],
                 font=("Arial", 15),
                 anchor="w",
                 justify="left",
@@ -4369,20 +4457,18 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 "Eleman.net": "#7A4DFF"
             }
 
-            source_badge = ctk.CTkLabel(
+            source_badge = create_fast_label(
 
                 card,
 
                 text=source_name,
 
-                fg_color=source_colors.get(
+                background=source_colors.get(
                     source_name,
                     "#555555"
                 ),
 
-                text_color="white",
-
-                corner_radius=10,
+                foreground="white",
 
                 font=(
                     "Arial",
@@ -4401,11 +4487,15 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 pady=(8, 0)
             )
 
-            location = ctk.CTkLabel(
+            location = create_fast_label(
 
                 card,
 
                 text=f"📍 {format_card_location(job.location)}",
+
+                background=palette["card"],
+
+                foreground=palette["text"],
 
                 font=(
                     "Arial",
@@ -4433,13 +4523,17 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
             if job_date_text:
 
-                date_label = ctk.CTkLabel(
+                date_label = create_fast_label(
 
                     card,
 
                     text=format_job_date_text(
                         job_date_text
                     ),
+
+                    background=palette["card"],
+
+                    foreground=palette["text"],
 
                     font=("Arial", 13),
 
@@ -4473,15 +4567,14 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 is_favorite
             ):
 
-                favorite_status_badge = ctk.CTkLabel(
+                favorite_status_badge = create_fast_label(
                     card,
                     text=f"Favoride · {application_status}",
-                    fg_color=APPLICATION_STATUS_COLORS.get(
+                    background=APPLICATION_STATUS_COLORS.get(
                         application_status,
                         "#3A3A3A"
                     ),
-                    text_color="white",
-                    corner_radius=10,
+                    foreground="white",
                     font=(
                         "Arial",
                         12,
@@ -4499,15 +4592,14 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
             if self.view_mode == "favorites":
 
-                status_badge = ctk.CTkLabel(
+                status_badge = create_fast_label(
                     card,
                     text=f"Durum: {application_status}",
-                    fg_color=APPLICATION_STATUS_COLORS.get(
+                    background=APPLICATION_STATUS_COLORS.get(
                         application_status,
                         "#3A3A3A"
                     ),
-                    text_color="white",
-                    corner_radius=10,
+                    foreground="white",
                     font=(
                         "Arial",
                         12,
@@ -4533,10 +4625,11 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
                 if saved_at:
 
-                    saved_label = ctk.CTkLabel(
+                    saved_label = create_fast_label(
                         card,
                         text=f"Favoriye eklenme: {saved_at}",
-                        text_color="gray",
+                        background=palette["card"],
+                        foreground=palette["muted"],
                         font=(
                             "Arial",
                             13
@@ -4560,10 +4653,11 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
 
                 if status_updated_at:
 
-                    status_date_label = ctk.CTkLabel(
+                    status_date_label = create_fast_label(
                         card,
                         text=f"Durum güncelleme: {status_updated_at}",
-                        text_color="gray",
+                        background=palette["card"],
+                        foreground=palette["muted"],
                         font=(
                             "Arial",
                             13
@@ -4591,10 +4685,11 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                         else application_note
                     )
 
-                    note_label = ctk.CTkLabel(
+                    note_label = create_fast_label(
                         card,
                         text=f"Not: {note_preview}",
-                        text_color="gray",
+                        background=palette["card"],
+                        foreground=palette["muted"],
                         font=(
                             "Arial",
                             13
@@ -4611,7 +4706,7 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                         pady=(6, 0)
                     )
 
-            details = ctk.CTkLabel(
+            details = create_fast_label(
 
                 card,
 
@@ -4619,6 +4714,10 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                     f"Deneyim: {job.experience}   |   "
                     f"Çalışma: {job.remote}"
                 ),
+
+                background=palette["card"],
+
+                foreground=palette["text"],
 
                 font=(
                     "Arial",
@@ -4634,9 +4733,11 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 pady=(6, 18)
             )
 
-            button_frame = ctk.CTkFrame(
+            button_frame = tk.Frame(
                 card,
-                fg_color="transparent"
+                bg=palette["card"],
+                borderwidth=0,
+                highlightthickness=0
             )
 
             button_frame.pack(
@@ -4672,23 +4773,14 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                     padx=5
                 )
 
-            open_button = ctk.CTkButton(
-
+            open_button = create_fast_action(
                 button_frame,
-
-                text="Başvuruya Git",
-
-                width=142,
-
-                height=38,
-
-                corner_radius=12,
-                fg_color="#2E8B57",
-                hover_color="#247348",
+                "Başvuruya Git",
+                lambda j=job: self.open_job_link(j),
+                background="#2E8B57",
+                hover_background="#247348",
                 font=("Arial", 13, "bold"),
-
-                command=lambda j=job:
-                self.open_job_link(j)
+                width=16
             )
 
             open_button.pack(
@@ -4696,22 +4788,13 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 padx=5
             )
 
-            detail_button = ctk.CTkButton(
-
+            detail_button = create_fast_action(
                 button_frame,
-
-                text="Detayları Gör",
-
-                width=126,
-
-                height=38,
-
-                corner_radius=12,
-                fg_color="#3A3A3A",
-                hover_color="#4A4A4A",
-
-                command=lambda j=job:
-                self.show_job_details(j)
+                "Detayları Gör",
+                lambda j=job: self.show_job_details(j),
+                background="#3A3A3A",
+                hover_background="#4A4A4A",
+                width=14
             )
 
             detail_button.pack(
@@ -4719,30 +4802,26 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 padx=5
             )
 
-            favorite_button = ctk.CTkButton(
-
+            favorite_button = create_fast_action(
                 button_frame,
-
-                text=(
+                (
                     "★ Favoriden Çıkar"
                     if is_favorite
                     else "★ Favoriye Ekle"
                 ),
-
-                width=172,
-
-                height=38,
-
-                corner_radius=12,
-
-                fg_color="#5B3F00" if is_favorite else "#2F2F2F",
-
-                hover_color="#AA3333" if is_favorite else "#4A4A4A",
-
-                text_color="white",
-
-                command=lambda j=job:
-                self.toggle_favorite(j)
+                lambda j=job: self.toggle_favorite(j),
+                background=(
+                    "#5B3F00"
+                    if is_favorite
+                    else "#2F2F2F"
+                ),
+                hover_background=(
+                    "#AA3333"
+                    if is_favorite
+                    else "#4A4A4A"
+                ),
+                font=("Arial", 13),
+                width=20
             )
 
             favorite_button.pack(
@@ -4755,61 +4834,19 @@ class JobApp(NavigationMixin, UpdateMixin, FavoritesMixin, JobDetailsMixin, ctk.
                 not is_favorite
             ):
 
-                hide_button = ctk.CTkButton(
-
+                hide_button = create_fast_action(
                     button_frame,
-
-                    text="Gizle",
-
-                    width=92,
-
-                    height=38,
-
-                    corner_radius=12,
-
-                    fg_color="#2F2F2F",
-
-                    hover_color="#5A2F2F",
-
-                    text_color="white",
-
-                    command=lambda j=job:
-                    self.hide_job(j)
+                    "Gizle",
+                    lambda j=job: self.hide_job(j),
+                    background="#2F2F2F",
+                    hover_background="#5A2F2F",
+                    width=8
                 )
 
                 hide_button.pack(
                     side="left",
                     padx=5
                 )
-
-            favorite_button.bind(
-
-                "<Enter>",
-
-                lambda e, b=favorite_button, fav=is_favorite:
-
-                self.safe_button_text(
-                    b,
-
-                    "★ Favoriden Çıkar"
-                    if fav 
-                    else "★ Favoriye Ekle"
-                )
-            )
-
-            favorite_button.bind(
-
-                "<Leave>",
-
-                lambda e, b=favorite_button, fav=is_favorite:
-                self.safe_button_text(
-                    b,
-
-                    "★ Favoriden Çıkar"
-                    if fav
-                    else "★ Favoriye Ekle"
-                )
-            )
 
         self.update_pagination_controls(
             total_pages

@@ -1,20 +1,35 @@
 import io
+import hashlib
 import threading
 import webbrowser
 
 import customtkinter as ctk
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 from scrapers.eleman import fetch_eleman_detail_description
 from scrapers.kariyer import fetch_kariyer_detail_description
 from ui.config import (
-    APPLICATION_STATUSES,
-    APPLICATION_STATUS_COLORS
+    APPLICATION_STATUSES
 )
 from ui.formatters import (
     format_job_date_text,
     format_saved_at
+)
+
+
+LOGO_LOADING = object()
+LOGO_FAILED = object()
+LOGO_MISSING = object()
+
+LOGO_PLACEHOLDER_COLORS = (
+    "#3D729D",
+    "#3B806F",
+    "#725F9A",
+    "#A06B48",
+    "#9C5268",
+    "#637C4B",
+    "#39758A"
 )
 
 
@@ -39,6 +54,90 @@ class JobDetailsMixin:
 
         return initials[:2]
 
+    def get_logo_placeholder(self, company, size=56):
+
+        company_text = str(company or "Bilinmeyen Firma").strip()
+        cache_key = (company_text.casefold(), size)
+        cached_image = self.logo_placeholder_images.get(cache_key)
+
+        if cached_image is not None:
+
+            return cached_image
+
+        scale = 3
+        canvas_size = size * scale
+        digest = hashlib.sha256(
+            company_text.casefold().encode("utf-8")
+        ).digest()
+        background = LOGO_PLACEHOLDER_COLORS[
+            digest[0] % len(LOGO_PLACEHOLDER_COLORS)
+        ]
+        image = Image.new(
+            "RGBA",
+            (canvas_size, canvas_size),
+            (0, 0, 0, 0)
+        )
+        draw = ImageDraw.Draw(image)
+        inset = 2 * scale
+        draw.rounded_rectangle(
+            (
+                inset,
+                inset,
+                canvas_size - inset - 1,
+                canvas_size - inset - 1
+            ),
+            radius=18 * scale,
+            fill=background,
+            outline=(255, 255, 255, 38),
+            width=scale
+        )
+        font = self.load_placeholder_font(18 * scale)
+        draw.text(
+            (canvas_size / 2, canvas_size / 2 - scale),
+            self.get_company_initials(company_text),
+            fill="white",
+            font=font,
+            anchor="mm"
+        )
+        image = image.resize(
+            (size, size),
+            Image.Resampling.LANCZOS
+        )
+        photo = ImageTk.PhotoImage(image)
+        self.logo_placeholder_images[cache_key] = photo
+
+        return photo
+
+    @staticmethod
+    def load_placeholder_font(size):
+
+        for font_name in (
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+            "arialbd.ttf",
+            "DejaVuSans-Bold.ttf"
+        ):
+
+            try:
+
+                return ImageFont.truetype(font_name, size)
+
+            except OSError:
+
+                continue
+
+        return ImageFont.load_default(size=size)
+
+    def register_logo_label(self, logo_url, logo_label):
+
+        if not logo_url:
+
+            return
+
+        self.logo_labels_by_url.setdefault(
+            logo_url,
+            []
+        ).append(logo_label)
+
     def get_logo_image(self, job):
 
         logo_url = getattr(
@@ -51,11 +150,20 @@ class JobDetailsMixin:
 
             return None
 
-        if logo_url in self.logo_images:
+        cached_logo = self.logo_images.get(
+            logo_url,
+            LOGO_MISSING
+        )
 
-            return self.logo_images[logo_url]
+        if cached_logo is LOGO_LOADING or cached_logo is LOGO_FAILED:
 
-        self.logo_images[logo_url] = None
+            return None
+
+        if cached_logo is not LOGO_MISSING:
+
+            return self.build_logo_photo(cached_logo)
+
+        self.logo_images[logo_url] = LOGO_LOADING
 
         threading.Thread(
             target=self.download_logo_image,
@@ -64,6 +172,30 @@ class JobDetailsMixin:
         ).start()
 
         return None
+
+    def build_logo_photo(self, cached_logo):
+
+        if not isinstance(cached_logo, dict):
+
+            return cached_logo
+
+        photo = cached_logo.get("photo")
+
+        if photo is None:
+
+            image = cached_logo["image"]
+
+            if image.size != (56, 56):
+
+                image = image.resize(
+                    (56, 56),
+                    Image.Resampling.LANCZOS
+                )
+
+            photo = ImageTk.PhotoImage(image)
+            cached_logo["photo"] = photo
+
+        return photo
 
     def download_logo_image(self, logo_url):
 
@@ -80,13 +212,18 @@ class JobDetailsMixin:
                 io.BytesIO(response.content)
             ).convert("RGBA")
 
-            logo_image = ctk.CTkImage(
-                light_image=image,
-                dark_image=image,
-                size=(56, 56)
-            )
+            if (
+                image.width < 2 or
+                image.height < 2 or
+                image.getbbox() is None
+            ):
 
-            self.logo_images[logo_url] = logo_image
+                raise ValueError("Geçersiz veya boş logo görseli")
+
+            self.logo_images[logo_url] = {
+                "image": image,
+                "photo": None
+            }
 
             self.schedule_logo_refresh()
 
@@ -94,26 +231,85 @@ class JobDetailsMixin:
 
             print("Logo yüklenemedi:", e)
 
-            self.logo_images[logo_url] = None
+            self.logo_images[logo_url] = LOGO_FAILED
 
     def schedule_logo_refresh(self):
 
-        if self.logo_refresh_pending:
+        self.logo_refresh_queue.put(True)
 
-            return
+    def poll_logo_refresh_queue(self):
 
-        self.logo_refresh_pending = True
+        should_refresh = False
+
+        while not self.logo_refresh_queue.empty():
+
+            self.logo_refresh_queue.get_nowait()
+            should_refresh = True
+
+        if should_refresh:
+
+            self.refresh_logos()
 
         self.after(
-            250,
-            self.refresh_logos
+            100,
+            self.poll_logo_refresh_queue
         )
 
     def refresh_logos(self):
 
-        self.logo_refresh_pending = False
+        for logo_url, labels in list(
+            getattr(
+                self,
+                "logo_labels_by_url",
+                {}
+            ).items()
+        ):
 
-        self.display_jobs()
+            cached_logo = self.logo_images.get(logo_url)
+
+            if (
+                cached_logo is LOGO_LOADING or
+                cached_logo is LOGO_FAILED or
+                cached_logo is None
+            ):
+
+                continue
+
+            logo_image = self.build_logo_photo(
+                cached_logo
+            )
+
+            live_labels = []
+
+            for label in labels:
+
+                try:
+
+                    if not label.winfo_exists():
+
+                        continue
+
+                    label.configure(
+                        text="",
+                        image=logo_image
+                    )
+
+                    live_labels.append(label)
+
+                except Exception:
+
+                    continue
+
+            if live_labels:
+
+                self.logo_labels_by_url[logo_url] = live_labels
+
+            else:
+
+                self.logo_labels_by_url.pop(
+                    logo_url,
+                    None
+                )
 
     def get_job_link(self, job):
 
@@ -208,15 +404,17 @@ class JobDetailsMixin:
             ""
         )
 
-        for favorite in self.favorite_jobs:
+        favorite = getattr(
+            self,
+            "favorite_jobs_by_url",
+            {}
+        ).get(job_url)
 
-            if favorite.get("url") == job_url:
+        if favorite:
 
-                favorite["description"] = description
+            favorite["description"] = description
 
-                self.save_favorites()
-
-                break
+            self.save_favorites()
 
     def load_kariyer_description(self, job, description_box):
 
@@ -394,31 +592,30 @@ class JobDetailsMixin:
 
         logo_image = self.get_logo_image(job)
 
-        if logo_image:
+        if not logo_image:
 
-            logo_label = ctk.CTkLabel(
-                logo_frame,
-                text="",
-                image=logo_image
-            )
-
-        else:
-
-            logo_label = ctk.CTkLabel(
-                logo_frame,
-                text=self.get_company_initials(
-                    getattr(
-                        job,
-                        "company",
-                        ""
-                    )
-                ),
-                font=(
-                    "Arial",
-                    18,
-                    "bold"
+            logo_image = self.get_logo_placeholder(
+                getattr(
+                    job,
+                    "company",
+                    ""
                 )
             )
+
+        logo_label = ctk.CTkLabel(
+            logo_frame,
+            text="",
+            image=logo_image
+        )
+
+        self.register_logo_label(
+            getattr(
+                job,
+                "logo_url",
+                ""
+            ),
+            logo_label
+        )
 
         logo_label.pack(
             fill="both",

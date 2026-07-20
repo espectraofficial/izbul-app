@@ -105,6 +105,17 @@ CITY_NAMES_BY_CODE = {
     for city, code in CITY_MAP.items()
 }
 
+SOURCE_SITE_BY_KEY = {
+    "kariyer": "Kariyer",
+    "jooble": "Jooble",
+    "eleman": "Eleman.net"
+}
+
+SOURCE_KEY_BY_SITE = {
+    site: source
+    for source, site in SOURCE_SITE_BY_KEY.items()
+}
+
 
 def normalize_text(value):
 
@@ -130,41 +141,36 @@ def deduplicate_jobs(jobs):
 
     for job in jobs:
 
-        try:
-
-            key = (
-                normalize_text(
-                    getattr(
-                        job,
-                        "title",
-                        ""
-                    )
-                ),
-                normalize_text(
-                    getattr(
-                        job,
-                        "company",
-                        ""
-                    )
-                ),
-                normalize_text(
-                    getattr(
-                        job,
-                        "location",
-                        ""
-                    )
+        key = (
+            normalize_text(
+                getattr(
+                    job,
+                    "title",
+                    ""
+                )
+            ),
+            normalize_text(
+                getattr(
+                    job,
+                    "company",
+                    ""
+                )
+            ),
+            normalize_text(
+                getattr(
+                    job,
+                    "location",
+                    ""
                 )
             )
+        )
 
-            if key in seen:
-                continue
-
-            seen.add(key)
-
-            unique.append(job)
-
-        except:
+        if key in seen:
             continue
+
+        seen.add(key)
+
+        unique.append(job)
 
     return unique
 
@@ -275,30 +281,24 @@ def get_http_status(error):
 
 def count_jobs_by_source(jobs):
 
-    source_sites = {
-        "kariyer": "Kariyer",
-        "jooble": "Jooble",
-        "eleman": "Eleman.net"
-    }
-
     counts = {
         source: 0
-        for source in source_sites
+        for source in SOURCE_SITE_BY_KEY
     }
 
     for job in jobs:
 
-        site = getattr(
-            job,
-            "site",
-            ""
+        source = SOURCE_KEY_BY_SITE.get(
+            getattr(
+                job,
+                "site",
+                ""
+            )
         )
 
-        for source, site_name in source_sites.items():
+        if source:
 
-            if site == site_name:
-
-                counts[source] += 1
+            counts[source] += 1
 
     return counts
 

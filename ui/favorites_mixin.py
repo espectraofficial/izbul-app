@@ -16,6 +16,22 @@ from ui.formatters import (
 
 class FavoritesMixin:
 
+    def rebuild_favorites_index(self):
+
+        self.favorite_jobs_by_url = {
+            favorite.get("url"): favorite
+            for favorite in getattr(self, "favorite_jobs", [])
+            if favorite.get("url")
+        }
+
+    def rebuild_hidden_jobs_index(self):
+
+        self.hidden_job_urls = {
+            hidden.get("url")
+            for hidden in getattr(self, "hidden_jobs", [])
+            if hidden.get("url")
+        }
+
     def save_favorites(self):
 
         try:
@@ -42,6 +58,10 @@ class FavoritesMixin:
 
             print("Favoriler kaydedilemedi:", e)
 
+        finally:
+
+            self.rebuild_favorites_index()
+
     # =========================
     # LOAD FAVORITES
     # =========================
@@ -51,6 +71,7 @@ class FavoritesMixin:
         if not os.path.exists(self.favorites_file):
 
             self.favorite_jobs = []
+            self.rebuild_favorites_index()
 
             return
 
@@ -102,11 +123,14 @@ class FavoritesMixin:
             else:
                 self.favorite_jobs = []
 
+            self.rebuild_favorites_index()
+
         except Exception as e:
 
             print("Favoriler yüklenemedi:", e)
 
             self.favorite_jobs = []
+            self.rebuild_favorites_index()
 
     def save_hidden_jobs(self):
 
@@ -134,11 +158,16 @@ class FavoritesMixin:
 
             print("Gizlenen ilanlar kaydedilemedi:", e)
 
+        finally:
+
+            self.rebuild_hidden_jobs_index()
+
     def load_hidden_jobs(self):
 
         if not os.path.exists(self.hidden_jobs_file):
 
             self.hidden_jobs = []
+            self.rebuild_hidden_jobs_index()
 
             return
 
@@ -158,11 +187,14 @@ class FavoritesMixin:
                 else []
             )
 
+            self.rebuild_hidden_jobs_index()
+
         except Exception as e:
 
             print("Gizlenen ilanlar yüklenemedi:", e)
 
             self.hidden_jobs = []
+            self.rebuild_hidden_jobs_index()
 
     def get_job_identity(self, job):
 
@@ -186,9 +218,10 @@ class FavoritesMixin:
 
             return False
 
-        return any(
-            hidden.get("url") == job_identity
-            for hidden in self.hidden_jobs
+        return job_identity in getattr(
+            self,
+            "hidden_job_urls",
+            set()
         )
 
     def hide_job(self, job):
@@ -532,14 +565,11 @@ class FavoritesMixin:
             "status_updated_at": get_current_timestamp()
         }
 
-        existing = None
-
-        for fav in self.favorite_jobs:
-
-            if fav.get("url") == job_url:
-
-                existing = fav
-                break
+        existing = getattr(
+            self,
+            "favorite_jobs_by_url",
+            {}
+        ).get(job_url)
 
         if existing:
 
@@ -591,13 +621,11 @@ class FavoritesMixin:
             ""
         )
 
-        for favorite in self.favorite_jobs:
-
-            if favorite.get("url") == job_url:
-
-                return favorite
-
-        return None
+        return getattr(
+            self,
+            "favorite_jobs_by_url",
+            {}
+        ).get(job_url)
 
     def get_favorite_job_objects(self):
 
@@ -653,14 +681,16 @@ class FavoritesMixin:
 
             status = "Kaydedildi"
 
-        for favorite in self.favorite_jobs:
+        favorite = getattr(
+            self,
+            "favorite_jobs_by_url",
+            {}
+        ).get(job_url)
 
-            if favorite.get("url") == job_url:
+        if favorite:
 
-                favorite["application_status"] = status
-                favorite["status_updated_at"] = get_current_timestamp()
-
-                break
+            favorite["application_status"] = status
+            favorite["status_updated_at"] = get_current_timestamp()
 
         if hasattr(job, "application_status"):
 
@@ -692,13 +722,15 @@ class FavoritesMixin:
             note or ""
         ).strip()
 
-        for favorite in self.favorite_jobs:
+        favorite = getattr(
+            self,
+            "favorite_jobs_by_url",
+            {}
+        ).get(job_url)
 
-            if favorite.get("url") == job_url:
+        if favorite:
 
-                favorite["application_note"] = note
-
-                break
+            favorite["application_note"] = note
 
         if hasattr(job, "application_note"):
 
