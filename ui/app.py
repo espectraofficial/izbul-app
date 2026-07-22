@@ -8,6 +8,7 @@ from ui.favorites_mixin import FavoritesMixin
 from ui.filters_mixin import FiltersMixin
 from ui.home_mixin import HomeViewMixin
 from ui.job_details_mixin import JobDetailsMixin
+from ui.layout import calculate_window_layout
 from ui.navigation_mixin import NavigationMixin
 from ui.presentation_mixin import PresentationMixin
 from ui.results_view import ResultsView
@@ -40,33 +41,21 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
-
-        window_width = min(
-            1500,
-            max(
-                1300,
-                int(screen_width * 0.92)
-            )
+        window_layout = calculate_window_layout(
+            screen_width,
+            screen_height
         )
-        window_height = min(
-            900,
-            max(
-                750,
-                int((screen_height - 80) * 0.92)
-            )
-        )
-
-        x = int((screen_width - window_width) / 2)
-        y = int(((screen_height - window_height) / 2) - 60)
-
-        if y < 30:
-            y = 30
+        self.compact_layout = window_layout.compact
 
         self.geometry(
-            f"{window_width}x{window_height}+{x}+{y}"
+            f"{window_layout.width}x{window_layout.height}"
+            f"+{window_layout.x}+{window_layout.y}"
         )
 
-        self.minsize(1300, 750)
+        self.minsize(
+            window_layout.min_width,
+            window_layout.min_height
+        )
 
         self.after(
             100,
@@ -161,7 +150,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
         self.top_frame = ctk.CTkFrame(
             self.main_container,
-            height=70,
+            height=60 if self.compact_layout else 70,
             corner_radius=0
         )
 
@@ -177,9 +166,9 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             text="<",
 
-            width=42,
+            width=38 if self.compact_layout else 42,
 
-            height=42,
+            height=38 if self.compact_layout else 42,
 
             corner_radius=999,
 
@@ -193,8 +182,8 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
         self.back_button.pack(
             side="left",
-            padx=(20, 8),
-            pady=15
+            padx=(14, 6) if self.compact_layout else (20, 8),
+            pady=10 if self.compact_layout else 15
         )
         
         # SEARCH ENTRY
@@ -206,17 +195,17 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
         search_group.pack(
             side="left",
-            padx=(18, 10),
-            pady=12
+            padx=(10, 6) if self.compact_layout else (18, 10),
+            pady=9 if self.compact_layout else 12
         )
 
         self.keyword_entry = ctk.CTkEntry(
 
             search_group,
 
-            width=320,
+            width=280 if self.compact_layout else 320,
 
-            height=44,
+            height=38 if self.compact_layout else 44,
 
             corner_radius=12,
 
@@ -254,9 +243,9 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             text="Ara",
 
-            width=82,
+            width=72 if self.compact_layout else 82,
 
-            height=44,
+            height=38 if self.compact_layout else 44,
 
             corner_radius=12,
             fg_color="#1F6AA5",
@@ -279,9 +268,9 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             text="LinkedIn'de Ara",
 
-            width=136,
+            width=124 if self.compact_layout else 136,
 
-            height=44,
+            height=38 if self.compact_layout else 44,
 
             corner_radius=12,
             fg_color="#3A3A3A",
@@ -302,8 +291,8 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
         nav_group.pack(
             side="right",
-            padx=(8, 20),
-            pady=12
+            padx=(6, 14) if self.compact_layout else (8, 20),
+            pady=9 if self.compact_layout else 12
         )
 
         # FAVORITES BUTTON
@@ -314,9 +303,9 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             text="★ Favoriler",
 
-            width=118,
+            width=106 if self.compact_layout else 118,
 
-            height=44,
+            height=38 if self.compact_layout else 44,
 
             corner_radius=12,
             fg_color="#3A3A3A",
@@ -338,9 +327,9 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             text="Ana Sayfa",
 
-            width=120,
+            width=108 if self.compact_layout else 120,
 
-            height=44,
+            height=38 if self.compact_layout else 44,
 
             corner_radius=12,
             fg_color="#3A3A3A",
@@ -362,9 +351,9 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             text="Ayarlar",
 
-            width=96,
+            width=86 if self.compact_layout else 96,
 
-            height=44,
+            height=38 if self.compact_layout else 44,
 
             corner_radius=12,
             fg_color="#2F2F2F",
@@ -390,8 +379,8 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         self.content_container.pack(
             fill="both",
             expand=True,
-            padx=10,
-            pady=10
+            padx=6 if self.compact_layout else 10,
+            pady=6 if self.compact_layout else 10
         )
 
         # =========================
@@ -400,14 +389,14 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
         self.sidebar = ctk.CTkFrame(
             self.content_container,
-            width=280,
-            corner_radius=18
+            width=245 if self.compact_layout else 280,
+            corner_radius=14 if self.compact_layout else 18
         )
 
         self.sidebar.pack(
             side="left",
             fill="y",
-            padx=(5, 10)
+            padx=(3, 7) if self.compact_layout else (5, 10)
         )
 
         # =========================
@@ -422,15 +411,15 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             font=(
                 "Arial",
-                22,
+                19 if self.compact_layout else 22,
                 "bold"
             )
         )
 
         filter_title.pack(
             anchor="w",
-            padx=18,
-            pady=(14, 10)
+            padx=14 if self.compact_layout else 18,
+            pady=(8, 4) if self.compact_layout else (14, 10)
         )
 
         # =========================
@@ -445,24 +434,24 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             font=(
                 "Arial",
-                13,
+                11 if self.compact_layout else 13,
                 "bold"
             )
         )
 
         city_label.pack(
             anchor="w",
-            padx=18,
-            pady=(4, 4)
+            padx=14 if self.compact_layout else 18,
+            pady=(2, 2) if self.compact_layout else (4, 4)
         )
 
         self.city_entry = ctk.CTkEntry(
 
             self.sidebar,
 
-            width=230,
+            width=210 if self.compact_layout else 230,
 
-            height=34,
+            height=30 if self.compact_layout else 34,
 
             corner_radius=10,
 
@@ -470,8 +459,8 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         )
 
         self.city_entry.pack(
-            padx=20,
-            pady=(0, 10)
+            padx=16 if self.compact_layout else 20,
+            pady=(0, 5) if self.compact_layout else (0, 10)
         )
 
         default_city = (
@@ -504,15 +493,15 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             font=(
                 "Arial",
-                13,
+                11 if self.compact_layout else 13,
                 "bold"
             )
         )
 
         source_label.pack(
             anchor="w",
-            padx=18,
-            pady=(4, 5)
+            padx=14 if self.compact_layout else 18,
+            pady=(2, 2) if self.compact_layout else (4, 5)
         )
 
         self.source_vars = {}
@@ -562,17 +551,17 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
                 text=source_name,
 
                 variable=var,
-                font=("Arial", 12),
-                height=22,
-                checkbox_width=16,
-                checkbox_height=16,
+                font=("Arial", 11 if self.compact_layout else 12),
+                height=18 if self.compact_layout else 22,
+                checkbox_width=15 if self.compact_layout else 16,
+                checkbox_height=15 if self.compact_layout else 16,
                 command=self.auto_apply_filters
             )
 
             checkbox.pack(
                 anchor="w",
-                padx=22,
-                pady=2
+                padx=18 if self.compact_layout else 22,
+                pady=0 if self.compact_layout else 2
             )
 
             self.source_vars[source_key] = var
@@ -585,15 +574,15 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             font=(
                 "Arial",
-                13,
+                11 if self.compact_layout else 13,
                 "bold"
             )
         )
 
         status_filter_label.pack(
             anchor="w",
-            padx=18,
-            pady=(8, 5)
+            padx=14 if self.compact_layout else 18,
+            pady=(4, 2) if self.compact_layout else (8, 5)
         )
 
         selected_application_statuses = self.settings.get(
@@ -620,15 +609,15 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
                 *APPLICATION_STATUSES
             ],
             variable=self.application_status_filter_var,
-            width=230,
-            height=34,
+            width=210 if self.compact_layout else 230,
+            height=30 if self.compact_layout else 34,
             command=lambda _:
             self.auto_apply_filters()
         )
 
         self.application_status_filter_menu.pack(
-            padx=18,
-            pady=(0, 8)
+            padx=14 if self.compact_layout else 18,
+            pady=(0, 4) if self.compact_layout else (0, 8)
         )
 
         # =========================
@@ -643,15 +632,15 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             font=(
                 "Arial",
-                13,
+                11 if self.compact_layout else 13,
                 "bold"
             )
         )
 
         experience_label.pack(
             anchor="w",
-            padx=18,
-            pady=(8, 5)
+            padx=14 if self.compact_layout else 18,
+            pady=(4, 2) if self.compact_layout else (8, 5)
         )
 
         self.exp_vars = {}
@@ -688,17 +677,17 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
                 text=exp,
 
                 variable=var,
-                font=("Arial", 12),
-                height=22,
-                checkbox_width=16,
-                checkbox_height=16,
+                font=("Arial", 11 if self.compact_layout else 12),
+                height=18 if self.compact_layout else 22,
+                checkbox_width=15 if self.compact_layout else 16,
+                checkbox_height=15 if self.compact_layout else 16,
                 command=self.auto_apply_filters
             )
 
             checkbox.pack(
                 anchor="w",
-                padx=22,
-                pady=2
+                padx=18 if self.compact_layout else 22,
+                pady=0 if self.compact_layout else 2
             )
 
             self.exp_vars[exp] = var
@@ -715,15 +704,15 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             font=(
                 "Arial",
-                13,
+                11 if self.compact_layout else 13,
                 "bold"
             )
         )
 
         remote_label.pack(
             anchor="w",
-            padx=18,
-            pady=(8, 5)
+            padx=14 if self.compact_layout else 18,
+            pady=(4, 2) if self.compact_layout else (8, 5)
         )
 
         self.remote_vars = {}
@@ -757,17 +746,17 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
                 text=remote,
 
                 variable=var,
-                font=("Arial", 12),
-                height=22,
-                checkbox_width=16,
-                checkbox_height=16,
+                font=("Arial", 11 if self.compact_layout else 12),
+                height=18 if self.compact_layout else 22,
+                checkbox_width=15 if self.compact_layout else 16,
+                checkbox_height=15 if self.compact_layout else 16,
                 command=self.auto_apply_filters
             )
 
             checkbox.pack(
                 anchor="w",
-                padx=22,
-                pady=2
+                padx=18 if self.compact_layout else 22,
+                pady=0 if self.compact_layout else 2
             )
 
             self.remote_vars[remote] = var
@@ -784,15 +773,15 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             font=(
                 "Arial",
-                13,
+                11 if self.compact_layout else 13,
                 "bold"
             )
         )
 
         sort_label.pack(
             anchor="w",
-            padx=18,
-            pady=(8, 5)
+            padx=14 if self.compact_layout else 18,
+            pady=(4, 2) if self.compact_layout else (8, 5)
         )
 
         sort_values = [
@@ -826,17 +815,17 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             variable=self.sort_var,
 
-            width=230,
+            width=210 if self.compact_layout else 230,
 
-            height=34,
+            height=30 if self.compact_layout else 34,
 
             command=lambda _:
             self.auto_apply_filters()
         )
 
         self.sort_menu.pack(
-            padx=18,
-            pady=(0, 8)
+            padx=14 if self.compact_layout else 18,
+            pady=(0, 4) if self.compact_layout else (0, 8)
         )
 
         # =========================
@@ -852,7 +841,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
             side="bottom",
             fill="x",
             padx=0,
-            pady=(0, 12)
+            pady=(0, 6) if self.compact_layout else (0, 12)
         )
 
         self.clear_filter_button = ctk.CTkButton(
@@ -861,7 +850,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             text="Filtreleri Temizle",
 
-            height=36,
+            height=32 if self.compact_layout else 36,
 
             corner_radius=12,
 
@@ -873,7 +862,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         )
 
         self.clear_filter_button.pack(
-            padx=18,
+            padx=14 if self.compact_layout else 18,
             pady=(0, 0),
             fill="x"
         )

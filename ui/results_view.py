@@ -180,6 +180,9 @@ class ResultsView(tk.Frame):
         self.list_frame.pack(fill="both", expand=True)
 
     def configure_columns(self):
+        compact = bool(
+            getattr(self.owner, "compact_layout", False)
+        )
         headings = {
             "title": "Pozisyon",
             "company": "Firma",
@@ -189,17 +192,35 @@ class ResultsView(tk.Frame):
             "remote": "Çalışma",
             "date": "Yayın tarihi"
         }
-        widths = {
-            "title": 245,
-            "company": 210,
-            "source": 90,
-            "location": 175,
-            "experience": 90,
-            "remote": 82,
-            "date": 115
-        }
+        widths = (
+            {
+                "title": 190,
+                "company": 165,
+                "source": 74,
+                "location": 130,
+                "experience": 76,
+                "remote": 68,
+                "date": 90
+            }
+            if compact
+            else {
+                "title": 245,
+                "company": 210,
+                "source": 90,
+                "location": 175,
+                "experience": 90,
+                "remote": 82,
+                "date": 115
+            }
+        )
         self.tree.heading("#0", text="")
-        self.tree.column("#0", width=92, minwidth=92, stretch=False)
+        logo_width = 70 if compact else 92
+        self.tree.column(
+            "#0",
+            width=logo_width,
+            minwidth=logo_width,
+            stretch=False
+        )
 
         for column in self.COLUMNS:
             self.tree.heading(column, text=headings[column], anchor="w")
@@ -263,6 +284,9 @@ class ResultsView(tk.Frame):
 
     def apply_palette(self):
         palette = self.palette
+        compact = bool(
+            getattr(self.owner, "compact_layout", False)
+        )
         outer = (
             "#F2F2F2"
             if palette["text"] == "#1A1A1A"
@@ -296,8 +320,8 @@ class ResultsView(tk.Frame):
             foreground=palette["text"],
             borderwidth=0,
             relief="flat",
-            rowheight=62,
-            font=("Arial", 12)
+            rowheight=56 if compact else 62,
+            font=("Arial", 11 if compact else 12)
         )
         style.configure(
             "Results.Treeview.Heading",
@@ -305,8 +329,8 @@ class ResultsView(tk.Frame):
             foreground=palette["text"],
             relief="flat",
             borderwidth=0,
-            padding=(8, 7),
-            font=("Arial", 12, "bold")
+            padding=(6, 5) if compact else (8, 7),
+            font=("Arial", 11 if compact else 12, "bold")
         )
         style.map(
             "Results.Treeview",
@@ -321,6 +345,9 @@ class ResultsView(tk.Frame):
             widget.destroy()
 
         palette = self.palette
+        compact = bool(
+            getattr(self.owner, "compact_layout", False)
+        )
         counts = {"kariyer": 0, "jooble": 0, "eleman": 0}
         for job in self.owner.filtered_jobs:
             source = SOURCE_KEY_BY_SITE.get(getattr(job, "site", ""))
@@ -331,14 +358,21 @@ class ResultsView(tk.Frame):
             self.header,
             text="Arama Sonuçları",
             text_color=palette["text"],
-            font=("Arial", 20, "bold")
-        ).pack(side="left", padx=(18, 10), pady=10)
+            font=("Arial", 17 if compact else 20, "bold")
+        ).pack(
+            side="left",
+            padx=(12, 7) if compact else (18, 10),
+            pady=7 if compact else 10
+        )
         ctk.CTkLabel(
             self.header,
             text=f"{len(self.owner.filtered_jobs)} ilan",
             text_color=palette["muted"],
-            font=("Arial", 14)
-        ).pack(side="left", padx=(0, 12))
+            font=("Arial", 12 if compact else 14)
+        ).pack(
+            side="left",
+            padx=(0, 7) if compact else (0, 12)
+        )
 
         for source, label in (
             ("kariyer", "Kariyer.net"),
@@ -347,14 +381,18 @@ class ResultsView(tk.Frame):
         ):
             ctk.CTkLabel(
                 self.header,
-                text=f"{label}: {counts[source]}",
+                text=(
+                    f"{label.replace('.net', '')}: {counts[source]}"
+                    if compact
+                    else f"{label}: {counts[source]}"
+                ),
                 fg_color=palette["surface"],
                 text_color=palette["text"],
                 corner_radius=9,
-                height=30,
-                padx=10,
-                font=("Arial", 12, "bold")
-            ).pack(side="left", padx=4)
+                height=26 if compact else 30,
+                padx=7 if compact else 10,
+                font=("Arial", 11 if compact else 12, "bold")
+            ).pack(side="left", padx=2 if compact else 4)
 
     def clear(self):
         self.clear_rows()
