@@ -62,6 +62,16 @@ class ResultsView(tk.Frame):
         )
         self.header.pack(fill="x", pady=(0, 8))
 
+        self.table_header = ctk.CTkFrame(
+            self,
+            corner_radius=0,
+            height=30
+        )
+        self.table_header.pack(
+            fill="x",
+            padx=(0, 12)
+        )
+
         self.list_frame = tk.Frame(
             self,
             borderwidth=0,
@@ -72,7 +82,7 @@ class ResultsView(tk.Frame):
         self.tree = ttk.Treeview(
             self.list_frame,
             columns=self.COLUMNS,
-            show="tree headings",
+            show="tree",
             selectmode="browse",
             style="Results.Treeview"
         )
@@ -180,41 +190,8 @@ class ResultsView(tk.Frame):
         self.list_frame.pack(fill="both", expand=True)
 
     def configure_columns(self):
-        compact = bool(
-            getattr(self.owner, "compact_layout", False)
-        )
-        headings = {
-            "title": "Pozisyon",
-            "company": "Firma",
-            "source": "Kaynak",
-            "location": "Konum",
-            "experience": "Deneyim",
-            "remote": "Çalışma",
-            "date": "Yayın tarihi"
-        }
-        widths = (
-            {
-                "title": 190,
-                "company": 165,
-                "source": 74,
-                "location": 130,
-                "experience": 76,
-                "remote": 68,
-                "date": 90
-            }
-            if compact
-            else {
-                "title": 245,
-                "company": 210,
-                "source": 90,
-                "location": 175,
-                "experience": 90,
-                "remote": 82,
-                "date": 115
-            }
-        )
-        self.tree.heading("#0", text="")
-        logo_width = 70 if compact else 92
+        widths = self.get_column_widths()
+        logo_width = widths.pop("logo")
         self.tree.column(
             "#0",
             width=logo_width,
@@ -223,7 +200,6 @@ class ResultsView(tk.Frame):
         )
 
         for column in self.COLUMNS:
-            self.tree.heading(column, text=headings[column], anchor="w")
             self.tree.column(
                 column,
                 width=widths[column],
@@ -232,11 +208,39 @@ class ResultsView(tk.Frame):
                 anchor="w"
             )
 
+    def get_column_widths(self):
+        compact = bool(
+            getattr(self.owner, "compact_layout", False)
+        )
+        if compact:
+            return {
+                "logo": 96,
+                "title": 180,
+                "company": 150,
+                "source": 74,
+                "location": 120,
+                "experience": 76,
+                "remote": 68,
+                "date": 90
+            }
+
+        return {
+            "logo": 100,
+            "title": 245,
+            "company": 210,
+            "source": 90,
+            "location": 175,
+            "experience": 90,
+            "remote": 82,
+            "date": 115
+        }
+
     def render(self, jobs, palette):
         self.jobs = list(jobs)
         self.palette = dict(palette)
         self.apply_palette()
         self.draw_header()
+        self.draw_table_header()
         self.clear_rows()
         self.owner.logo_labels_by_url = {}
 
@@ -339,6 +343,52 @@ class ResultsView(tk.Frame):
         )
         self.tree.tag_configure("even", background=palette["card"])
         self.tree.tag_configure("odd", background=alternate)
+
+    def draw_table_header(self):
+        for widget in self.table_header.winfo_children():
+            widget.destroy()
+
+        compact = bool(
+            getattr(self.owner, "compact_layout", False)
+        )
+        headings = (
+            ("", "logo"),
+            ("Pozisyon", "title"),
+            ("Firma", "company"),
+            ("Kaynak", "source"),
+            ("Konum", "location"),
+            ("Deneyim", "experience"),
+            ("Çalışma", "remote"),
+            ("Yayın tarihi", "date")
+        )
+        widths = self.get_column_widths()
+        self.table_header.configure(
+            fg_color=self.palette["surface"]
+        )
+
+        for index, (text, column) in enumerate(headings):
+            self.table_header.grid_columnconfigure(
+                index,
+                weight=widths[column],
+                uniform="results_columns"
+            )
+            ctk.CTkLabel(
+                self.table_header,
+                text=text,
+                text_color=self.palette["text"],
+                font=(
+                    "Arial",
+                    10 if compact else 12,
+                    "bold"
+                ),
+                height=27 if compact else 31,
+                anchor="w"
+            ).grid(
+                row=0,
+                column=index,
+                sticky="nsew",
+                padx=(5, 2)
+            )
 
     def draw_header(self):
         for widget in self.header.winfo_children():

@@ -167,7 +167,8 @@ class HomeViewMixin:
 
         status_frame.pack(
             anchor="center",
-            pady=(0, 8) if compact else (0, 16)
+            pady=(0, 8) if compact else (0, 12),
+            expand=not compact
         )
 
         status_items = [
@@ -306,7 +307,8 @@ class HomeViewMixin:
         quick_frame.pack(
             fill="x",
             padx=32 if compact else 90,
-            pady=(0, 8) if compact else (0, 14)
+            pady=(0, 8) if compact else (0, 10),
+            expand=not compact
         )
 
         quick_jobs = [
@@ -376,7 +378,8 @@ class HomeViewMixin:
             recent_frame.pack(
                 fill="x",
                 padx=45 if compact else 140,
-                pady=(0, 8) if compact else (0, 18)
+                pady=(0, 8) if compact else (0, 12),
+                expand=not compact
             )
 
             recent_index = 0
@@ -463,7 +466,8 @@ class HomeViewMixin:
         features_frame.pack(
             fill="x",
             padx=20 if compact else 44,
-            pady=(2, 6) if compact else (4, 14)
+            pady=(2, 6) if compact else (4, 12),
+            expand=not compact
         )
 
         features = [
@@ -501,7 +505,7 @@ class HomeViewMixin:
 
             card = ctk.CTkFrame(
                 features_frame,
-                height=84 if compact else 112,
+                height=84 if compact else 128,
                 corner_radius=12 if compact else 16
             )
 

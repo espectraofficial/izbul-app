@@ -3,7 +3,7 @@ import sys
 
 import customtkinter as ctk
 
-from ui.config import APPLICATION_STATUSES, APP_NAME, DEFAULT_SETTINGS
+from ui.config import APP_NAME, DEFAULT_SETTINGS
 from ui.diagnostics import configure_logging
 from ui.favorites_mixin import FavoritesMixin
 from ui.filters_mixin import FiltersMixin
@@ -47,7 +47,13 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         screen_height = self.winfo_screenheight()
         window_layout = calculate_window_layout(
             screen_width,
-            screen_height
+            screen_height,
+            reserved_height=(
+                150 if sys.platform == "darwin" else 100
+            ),
+            max_height=(
+                820 if sys.platform == "darwin" else 860
+            )
         )
         self.compact_layout = window_layout.compact
 
@@ -411,6 +417,27 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
             padx=(3, 7) if self.compact_layout else (5, 10)
         )
 
+        sort_values = [
+            "Varsayılan",
+            "A-Z Pozisyona Göre",
+            "A-Z Şirkete Göre",
+            "Junior Önce",
+            "Senior Önce",
+            "Remote Önce",
+            "En Yeni Önce"
+        ]
+        sort_type = self.settings.get(
+            "sort_type",
+            "Varsayılan"
+        )
+
+        if sort_type not in sort_values:
+            sort_type = "Varsayılan"
+
+        self.sort_var = ctk.StringVar(
+            value=sort_type
+        )
+
         filter_actions = ctk.CTkFrame(
             self.sidebar,
             fg_color="transparent"
@@ -423,20 +450,81 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
             pady=(0, 5) if self.compact_layout else (0, 12)
         )
 
-        self.clear_filter_button = ctk.CTkButton(
+        sort_label = ctk.CTkLabel(
             filter_actions,
+            text="Sıralama",
+            font=(
+                "Arial",
+                10 if self.compact_layout else 13,
+                "bold"
+            )
+        )
+        sort_label.pack(
+            anchor="w",
+            padx=12 if self.compact_layout else 18,
+            pady=(0, 2)
+        )
+
+        filter_action_row = ctk.CTkFrame(
+            filter_actions,
+            fg_color="transparent"
+        )
+        filter_action_row.pack(
+            fill="x",
+            padx=10 if self.compact_layout else 16
+        )
+
+        self.sort_menu = ctk.CTkOptionMenu(
+            filter_action_row,
+            values=sort_values,
+            variable=self.sort_var,
+            width=104 if self.compact_layout else 120,
+            height=30 if self.compact_layout else 34,
+            font=("Arial", 10 if self.compact_layout else 12),
+            dropdown_font=("Arial", 10 if self.compact_layout else 12),
+            command=lambda _: self.auto_apply_filters()
+        )
+        self.clear_filter_button = ctk.CTkButton(
+            filter_action_row,
             text="Filtreleri Temizle",
             height=30 if self.compact_layout else 36,
+            width=104 if self.compact_layout else 120,
             corner_radius=12,
             fg_color="#444444",
             hover_color="#555555",
+            font=("Arial", 10 if self.compact_layout else 12),
             command=self.clear_filters
         )
 
-        self.clear_filter_button.pack(
-            padx=12 if self.compact_layout else 18,
-            fill="x"
-        )
+        if self.compact_layout:
+            self.sort_menu.pack(
+                side="left",
+                fill="x",
+                expand=True,
+                padx=(0, 4)
+            )
+            self.clear_filter_button.pack(
+                side="left",
+                fill="x",
+                expand=True,
+                padx=(4, 0)
+            )
+        else:
+            self.sort_menu.pack(
+                fill="x"
+            )
+            ctk.CTkFrame(
+                filter_action_row,
+                height=1,
+                corner_radius=0,
+                fg_color=("#C8C8C8", "#4A4A4A")
+            ).pack(
+                fill="x",
+                pady=(11, 10)
+            )
+            self.clear_filter_button.pack(
+                fill="x"
+            )
 
         # =========================
         # FILTER TITLE
@@ -458,7 +546,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         filter_title.pack(
             anchor="w",
             padx=14 if self.compact_layout else 18,
-            pady=(8, 4) if self.compact_layout else (14, 10)
+            pady=(5, 2) if self.compact_layout else (14, 10)
         )
 
         # =========================
@@ -481,7 +569,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         city_label.pack(
             anchor="w",
             padx=14 if self.compact_layout else 18,
-            pady=(2, 2) if self.compact_layout else (4, 4)
+            pady=(1, 1) if self.compact_layout else (4, 4)
         )
 
         self.city_entry = ctk.CTkEntry(
@@ -499,7 +587,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
         self.city_entry.pack(
             padx=16 if self.compact_layout else 20,
-            pady=(0, 5) if self.compact_layout else (0, 10)
+            pady=(0, 3) if self.compact_layout else (0, 10)
         )
 
         default_city = (
@@ -540,7 +628,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         source_label.pack(
             anchor="w",
             padx=14 if self.compact_layout else 18,
-            pady=(2, 2) if self.compact_layout else (4, 5)
+            pady=(1, 1) if self.compact_layout else (4, 5)
         )
 
         self.source_vars = {}
@@ -605,58 +693,10 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             self.source_vars[source_key] = var
 
-        status_filter_label = ctk.CTkLabel(
-
-            self.sidebar,
-
-            text="Başvuru Durumu",
-
-            font=(
-                "Arial",
-                11 if self.compact_layout else 13,
-                "bold"
-            )
-        )
-
-        status_filter_label.pack(
-            anchor="w",
-            padx=14 if self.compact_layout else 18,
-            pady=(4, 2) if self.compact_layout else (8, 5)
-        )
-
-        selected_application_statuses = self.settings.get(
-            "selected_application_statuses",
-            []
-        )
-
-        if not isinstance(selected_application_statuses, list):
-
-            selected_application_statuses = []
-
+        # Başvuru durumu yalnızca Favoriler ekranındaki durum düğmeleriyle
+        # yönetilir; genel filtre panelinde aynı kontrolü tekrar göstermeyiz.
         self.application_status_filter_var = ctk.StringVar(
-            value=(
-                selected_application_statuses[0]
-                if len(selected_application_statuses) == 1
-                else "Tümü"
-            )
-        )
-
-        self.application_status_filter_menu = ctk.CTkOptionMenu(
-            self.sidebar,
-            values=[
-                "Tümü",
-                *APPLICATION_STATUSES
-            ],
-            variable=self.application_status_filter_var,
-            width=210 if self.compact_layout else 230,
-            height=30 if self.compact_layout else 34,
-            command=lambda _:
-            self.auto_apply_filters()
-        )
-
-        self.application_status_filter_menu.pack(
-            padx=14 if self.compact_layout else 18,
-            pady=(0, 4) if self.compact_layout else (0, 8)
+            value="Tümü"
         )
 
         # =========================
@@ -679,7 +719,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         experience_label.pack(
             anchor="w",
             padx=14 if self.compact_layout else 18,
-            pady=(4, 2) if self.compact_layout else (8, 5)
+            pady=(2, 1) if self.compact_layout else (8, 5)
         )
 
         self.exp_vars = {}
@@ -703,6 +743,15 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
             "Director"
         ]
 
+        experience_options_frame = ctk.CTkFrame(
+            self.sidebar,
+            fg_color="transparent"
+        )
+        experience_options_frame.pack(
+            fill="x",
+            padx=14 if self.compact_layout else 18
+        )
+
         for exp in experience_values:
 
             var = ctk.BooleanVar(
@@ -711,7 +760,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             checkbox = ctk.CTkCheckBox(
 
-                self.sidebar,
+                experience_options_frame,
 
                 text=exp,
 
@@ -725,7 +774,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
 
             checkbox.pack(
                 anchor="w",
-                padx=18 if self.compact_layout else 22,
+                padx=4,
                 pady=0 if self.compact_layout else 2
             )
 
@@ -751,7 +800,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         remote_label.pack(
             anchor="w",
             padx=14 if self.compact_layout else 18,
-            pady=(4, 2) if self.compact_layout else (8, 5)
+            pady=(2, 1) if self.compact_layout else (8, 5)
         )
 
         self.remote_vars = {}
@@ -799,73 +848,6 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
             )
 
             self.remote_vars[remote] = var
-
-        # =========================
-        # SORTING 
-        # =========================
-
-        sort_label = ctk.CTkLabel(
-
-            self.sidebar,
-
-            text="Sıralama",
-
-            font=(
-                "Arial",
-                11 if self.compact_layout else 13,
-                "bold"
-            )
-        )
-
-        sort_label.pack(
-            anchor="w",
-            padx=14 if self.compact_layout else 18,
-            pady=(4, 2) if self.compact_layout else (8, 5)
-        )
-
-        sort_values = [
-            "Varsayılan",
-            "A-Z Pozisyona Göre",
-            "A-Z Şirkete Göre",
-            "Junior Önce",
-            "Senior Önce",
-            "Remote Önce",
-            "En Yeni Önce"
-        ]
-
-        sort_type = self.settings.get(
-            "sort_type",
-            "Varsayılan"
-        )
-
-        if sort_type not in sort_values:
-
-            sort_type = "Varsayılan"
-
-        self.sort_var = ctk.StringVar(
-            value=sort_type
-        )
-
-        self.sort_menu = ctk.CTkOptionMenu(
-
-            self.sidebar,
-
-            values=sort_values,
-
-            variable=self.sort_var,
-
-            width=210 if self.compact_layout else 230,
-
-            height=30 if self.compact_layout else 34,
-
-            command=lambda _:
-            self.auto_apply_filters()
-        )
-
-        self.sort_menu.pack(
-            padx=14 if self.compact_layout else 18,
-            pady=(0, 4) if self.compact_layout else (0, 8)
-        )
 
         # =========================
         # RIGHT CONTENT
@@ -975,6 +957,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
             width=120,
 
             height=40,
+            corner_radius=12,
             fg_color="#3A3A3A",
             hover_color="#4A4A4A",
 
@@ -1014,6 +997,7 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
             width=120,
 
             height=40,
+            corner_radius=12,
             fg_color="#3A3A3A",
             hover_color="#4A4A4A",
 

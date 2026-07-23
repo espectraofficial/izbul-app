@@ -383,6 +383,10 @@ class SearchMixin:
 
     def get_selected_application_statuses(self):
 
+        if getattr(self, "view_mode", None) != "favorites":
+
+            return []
+
         if not hasattr(
             self,
             "application_status_filter_var"

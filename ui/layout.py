@@ -25,17 +25,25 @@ def calculate_compact_scaling(
         return 1.0, 1.0
 
     window_scaling = 1.0 / dpi_scaling
-    widget_scaling = min(1.0, 1.05 / dpi_scaling)
+    widget_scaling = min(1.0, 1.0 / dpi_scaling)
     return window_scaling, widget_scaling
 
 
-def calculate_window_layout(screen_width, screen_height):
+def calculate_window_layout(
+    screen_width,
+    screen_height,
+    reserved_height=100,
+    max_height=860
+):
     if screen_width <= 0 or screen_height <= 0:
         raise ValueError("Screen dimensions must be positive.")
 
     compact = screen_width < 1400 or screen_height < 850
     available_width = max(900, screen_width - 40)
-    available_height = max(560, screen_height - 100)
+    available_height = max(
+        560,
+        screen_height - reserved_height
+    )
 
     width = min(
         1440,
@@ -45,7 +53,7 @@ def calculate_window_layout(screen_width, screen_height):
         )
     )
     height = min(
-        860,
+        max_height,
         max(
             min(620, available_height),
             int(available_height * 0.9)

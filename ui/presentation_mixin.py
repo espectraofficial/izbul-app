@@ -204,8 +204,8 @@ class PresentationMixin:
                     ),
                     hover_color="#4A4A4A",
                     text_color="white",
-                    corner_radius=10,
-                    height=30,
+                    corner_radius=14,
+                    height=34,
                     font=(
                         "Arial",
                         12,
@@ -229,7 +229,7 @@ class PresentationMixin:
                 text="Tüm Favoriler",
                 width=140,
                 height=34,
-                corner_radius=10,
+                corner_radius=14,
                 command=self.clear_favorite_filters
             )
 
@@ -244,7 +244,7 @@ class PresentationMixin:
                 text="CSV Dışa Aktar",
                 width=140,
                 height=34,
-                corner_radius=10,
+                corner_radius=14,
                 fg_color="#3A3A3A",
                 hover_color="#4A4A4A",
                 command=self.export_favorites_csv
@@ -1063,6 +1063,7 @@ class PresentationMixin:
                     variable=status_var,
                     width=150,
                     height=38,
+                    corner_radius=12,
                     fg_color="#3A3A3A",
                     button_color="#4A4A4A",
                     button_hover_color="#555555",
@@ -1078,56 +1079,95 @@ class PresentationMixin:
                     padx=5
                 )
 
-            open_button = create_fast_action(
-                button_frame,
-                "Başvuruya Git",
-                lambda j=job: self.open_job_link(j),
-                background="#2E8B57",
-                hover_background="#247348",
-                font=("Arial", 13, "bold"),
-                width=16
-            )
+            if self.view_mode == "favorites":
+                open_button = ctk.CTkButton(
+                    button_frame,
+                    text="Başvuruya Git",
+                    command=lambda j=job: self.open_job_link(j),
+                    width=150,
+                    height=38,
+                    corner_radius=12,
+                    fg_color="#2E8B57",
+                    hover_color="#247348",
+                    font=("Arial", 13, "bold")
+                )
+            else:
+                open_button = create_fast_action(
+                    button_frame,
+                    "Başvuruya Git",
+                    lambda j=job: self.open_job_link(j),
+                    background="#2E8B57",
+                    hover_background="#247348",
+                    font=("Arial", 13, "bold"),
+                    width=16
+                )
 
             open_button.pack(
                 side="right",
                 padx=5
             )
 
-            detail_button = create_fast_action(
-                button_frame,
-                "Detayları Gör",
-                lambda j=job: self.show_job_details(j),
-                background="#3A3A3A",
-                hover_background="#4A4A4A",
-                width=14
-            )
+            if self.view_mode == "favorites":
+                detail_button = ctk.CTkButton(
+                    button_frame,
+                    text="Detayları Gör",
+                    command=lambda j=job: self.show_job_details(j),
+                    width=140,
+                    height=38,
+                    corner_radius=12,
+                    fg_color="#3A3A3A",
+                    hover_color="#4A4A4A",
+                    font=("Arial", 13)
+                )
+            else:
+                detail_button = create_fast_action(
+                    button_frame,
+                    "Detayları Gör",
+                    lambda j=job: self.show_job_details(j),
+                    background="#3A3A3A",
+                    hover_background="#4A4A4A",
+                    width=14
+                )
 
             detail_button.pack(
                 side="right",
                 padx=5
             )
 
-            favorite_button = create_fast_action(
-                button_frame,
-                (
-                    "★ Favoriden Çıkar"
-                    if is_favorite
-                    else "★ Favoriye Ekle"
-                ),
-                lambda j=job: self.toggle_favorite(j),
-                background=(
-                    "#5B3F00"
-                    if is_favorite
-                    else "#2F2F2F"
-                ),
-                hover_background=(
-                    "#AA3333"
-                    if is_favorite
-                    else "#4A4A4A"
-                ),
-                font=("Arial", 13),
-                width=20
-            )
+            if self.view_mode == "favorites":
+                favorite_button = ctk.CTkButton(
+                    button_frame,
+                    text="★ Favoriden Çıkar",
+                    command=lambda j=job: self.toggle_favorite(j),
+                    width=180,
+                    height=38,
+                    corner_radius=12,
+                    fg_color="#5B3F00",
+                    hover_color="#AA3333",
+                    font=("Arial", 13)
+                )
+            else:
+                favorite_button = create_fast_action(
+                    button_frame,
+                    (
+                        "★ Favoriden Çıkar"
+                        if is_favorite
+                        else "★ Favoriye Ekle"
+                    ),
+                    lambda j=job: self.toggle_favorite(j),
+                    background=(
+                        "#5B3F00"
+                        if is_favorite
+                        else "#2F2F2F"
+                    ),
+                    hover_background=(
+                        "#AA3333"
+                        if is_favorite
+                        else "#4A4A4A"
+                    ),
+                    font=("Arial", 13),
+                    width=20
+                )
 
             favorite_button.pack(
                 side="left",

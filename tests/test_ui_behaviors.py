@@ -2,6 +2,7 @@ from models.job import Job
 from ui.app import JobApp
 from ui.favorites_mixin import FavoritesMixin
 from ui.navigation_mixin import NavigationMixin
+from ui.search_mixin import SearchMixin
 
 
 class FakeVar:
@@ -345,6 +346,25 @@ def test_auto_filter_only_runs_on_results_and_favorites_views():
 
     assert app.saved == 2
     assert app.applied == 2
+
+
+def test_application_status_filter_is_only_active_in_favorites():
+    app = SearchMixin()
+    app.application_status_filter_var = FakeVar("Görüşme")
+
+    app.view_mode = "results"
+    assert app.get_selected_application_statuses() == []
+
+    app.view_mode = "favorites"
+    assert app.get_selected_application_statuses() == ["Görüşme"]
+
+
+def test_all_favorite_statuses_disable_application_status_filter():
+    app = SearchMixin()
+    app.view_mode = "favorites"
+    app.application_status_filter_var = FakeVar("Tümü")
+
+    assert app.get_selected_application_statuses() == []
 
 
 class PaginationHarness:
