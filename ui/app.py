@@ -496,35 +496,21 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
             command=self.clear_filters
         )
 
-        if self.compact_layout:
-            self.sort_menu.pack(
-                side="left",
-                fill="x",
-                expand=True,
-                padx=(0, 4)
-            )
-            self.clear_filter_button.pack(
-                side="left",
-                fill="x",
-                expand=True,
-                padx=(4, 0)
-            )
-        else:
-            self.sort_menu.pack(
-                fill="x"
-            )
-            ctk.CTkFrame(
-                filter_action_row,
-                height=1,
-                corner_radius=0,
-                fg_color=("#C8C8C8", "#4A4A4A")
-            ).pack(
-                fill="x",
-                pady=(11, 10)
-            )
-            self.clear_filter_button.pack(
-                fill="x"
-            )
+        self.sort_menu.pack(
+            fill="x"
+        )
+        ctk.CTkFrame(
+            filter_action_row,
+            height=1,
+            corner_radius=0,
+            fg_color=("#C8C8C8", "#4A4A4A")
+        ).pack(
+            fill="x",
+            pady=(7, 6) if self.compact_layout else (11, 10)
+        )
+        self.clear_filter_button.pack(
+            fill="x"
+        )
 
         # =========================
         # FILTER TITLE
