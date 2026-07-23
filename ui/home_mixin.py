@@ -168,7 +168,7 @@ class HomeViewMixin:
         status_frame.pack(
             anchor="center",
             pady=(0, 8) if compact else (0, 12),
-            expand=not compact
+            expand=True
         )
 
         status_items = [
@@ -308,7 +308,7 @@ class HomeViewMixin:
             fill="x",
             padx=32 if compact else 90,
             pady=(0, 8) if compact else (0, 10),
-            expand=not compact
+            expand=True
         )
 
         quick_jobs = [
@@ -379,7 +379,7 @@ class HomeViewMixin:
                 fill="x",
                 padx=45 if compact else 140,
                 pady=(0, 8) if compact else (0, 12),
-                expand=not compact
+                expand=True
             )
 
             recent_index = 0
@@ -467,7 +467,7 @@ class HomeViewMixin:
             fill="x",
             padx=20 if compact else 44,
             pady=(2, 6) if compact else (4, 12),
-            expand=not compact
+            expand=True
         )
 
         features = [
