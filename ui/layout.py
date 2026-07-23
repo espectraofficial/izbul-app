@@ -12,6 +12,23 @@ class WindowLayout:
     min_height: int
 
 
+def calculate_compact_scaling(
+    compact,
+    platform_name,
+    dpi_scaling
+):
+    if (
+        not compact or
+        platform_name != "win32" or
+        dpi_scaling <= 1
+    ):
+        return 1.0, 1.0
+
+    window_scaling = 1.0 / dpi_scaling
+    widget_scaling = min(1.0, 1.05 / dpi_scaling)
+    return window_scaling, widget_scaling
+
+
 def calculate_window_layout(screen_width, screen_height):
     if screen_width <= 0 or screen_height <= 0:
         raise ValueError("Screen dimensions must be positive.")

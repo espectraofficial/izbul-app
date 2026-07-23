@@ -75,6 +75,9 @@ class HomeViewMixin:
 
         self.view_mode = "home"
         self.show_home_layout()
+        compact = bool(
+            getattr(self, "compact_layout", False)
+        )
 
         self.filtered_jobs = []
         self.current_page = 1
@@ -102,8 +105,8 @@ class HomeViewMixin:
         container.pack(
             fill="both",
             expand=True,
-            padx=16,
-            pady=16
+            padx=8 if compact else 16,
+            pady=8 if compact else 16
         )
 
         title = ctk.CTkLabel(
@@ -114,13 +117,13 @@ class HomeViewMixin:
 
             font=(
                 "Arial",
-                42,
+                30 if compact else 42,
                 "bold"
             )
         )
 
         title.pack(
-            pady=(18, 8)
+            pady=(8, 4) if compact else (18, 8)
         )
 
         active_sources = [
@@ -149,12 +152,12 @@ class HomeViewMixin:
 
             font=(
                 "Arial",
-                18
+                14 if compact else 18
             )
         )
 
         subtitle.pack(
-            pady=(0, 16)
+            pady=(0, 8) if compact else (0, 16)
         )
 
         status_frame = ctk.CTkFrame(
@@ -164,7 +167,7 @@ class HomeViewMixin:
 
         status_frame.pack(
             anchor="center",
-            pady=(0, 16)
+            pady=(0, 8) if compact else (0, 16)
         )
 
         status_items = [
@@ -196,9 +199,9 @@ class HomeViewMixin:
 
             status_card = ctk.CTkFrame(
                 status_frame,
-                width=168,
-                height=74,
-                corner_radius=14
+                width=142 if compact else 168,
+                height=58 if compact else 74,
+                corner_radius=12 if compact else 14
             )
 
             status_card.grid(
@@ -227,26 +230,26 @@ class HomeViewMixin:
                 status_card,
                 text=label_text,
                 text_color="gray",
-                wraplength=132,
+                wraplength=116 if compact else 132,
                 font=(
                     "Arial",
-                    12
+                    10 if compact else 12
                 ),
                 anchor="center",
                 justify="center"
             ).grid(
                 row=1,
                 column=0,
-                pady=(0, 4)
+                pady=(0, 2) if compact else (0, 4)
             )
 
             ctk.CTkLabel(
                 status_card,
                 text=value_text,
-                wraplength=140,
+                wraplength=120 if compact else 140,
                 font=(
                     "Arial",
-                    14,
+                    12 if compact else 14,
                     "bold"
                 ),
                 anchor="center",
@@ -261,14 +264,14 @@ class HomeViewMixin:
             setup_button = ctk.CTkButton(
                 container,
                 text="Jooble API Anahtarını Ekle",
-                width=230,
-                height=38,
+                width=205 if compact else 230,
+                height=32 if compact else 38,
                 corner_radius=10,
                 command=self.show_settings
             )
 
             setup_button.pack(
-                pady=(0, 16)
+                pady=(0, 8) if compact else (0, 16)
             )
         else:
 
@@ -286,13 +289,13 @@ class HomeViewMixin:
             text_color="#D8DEE9",
             font=(
                 "Arial",
-                15,
+                13 if compact else 15,
                 "bold"
             )
         )
 
         frequent_label.pack(
-            pady=(0, 8)
+            pady=(0, 4) if compact else (0, 8)
         )
 
         quick_frame = ctk.CTkFrame(
@@ -302,8 +305,8 @@ class HomeViewMixin:
 
         quick_frame.pack(
             fill="x",
-            padx=90,
-            pady=(0, 14)
+            padx=32 if compact else 90,
+            pady=(0, 8) if compact else (0, 14)
         )
 
         quick_jobs = [
@@ -328,7 +331,7 @@ class HomeViewMixin:
 
                 text=job,
 
-                height=42,
+                height=34 if compact else 42,
 
                 corner_radius=12,
 
@@ -362,7 +365,7 @@ class HomeViewMixin:
             )
 
             recent_label.pack(
-                pady=(0, 6)
+                pady=(0, 3) if compact else (0, 6)
             )
 
             recent_frame = ctk.CTkFrame(
@@ -372,8 +375,8 @@ class HomeViewMixin:
 
             recent_frame.pack(
                 fill="x",
-                padx=140,
-                pady=(0, 18)
+                padx=45 if compact else 140,
+                pady=(0, 8) if compact else (0, 18)
             )
 
             recent_index = 0
@@ -433,7 +436,7 @@ class HomeViewMixin:
                 recent_button = ctk.CTkButton(
                     recent_frame,
                     text=button_text,
-                    height=32,
+                    height=28 if compact else 32,
                     corner_radius=10,
                     fg_color="#3A3A3A",
                     hover_color="#4A4A4A",
@@ -459,8 +462,8 @@ class HomeViewMixin:
 
         features_frame.pack(
             fill="x",
-            padx=44,
-            pady=(4, 14)
+            padx=20 if compact else 44,
+            pady=(2, 6) if compact else (4, 14)
         )
 
         features = [
@@ -498,8 +501,8 @@ class HomeViewMixin:
 
             card = ctk.CTkFrame(
                 features_frame,
-                height=112,
-                corner_radius=16
+                height=84 if compact else 112,
+                corner_radius=12 if compact else 16
             )
 
             card.grid(
@@ -524,7 +527,7 @@ class HomeViewMixin:
 
                 font=(
                     "Arial",
-                    17,
+                    14 if compact else 17,
                     "bold"
                 ),
                 anchor="center",
@@ -536,7 +539,7 @@ class HomeViewMixin:
                 column=0,
                 sticky="ew",
                 padx=10,
-                pady=(18, 8)
+                pady=(10, 4) if compact else (18, 8)
             )
 
             desc_label = ctk.CTkLabel(
@@ -545,13 +548,13 @@ class HomeViewMixin:
 
                 text=desc,
 
-                wraplength=180,
+                wraplength=150 if compact else 180,
 
                 justify="center",
 
                 font=(
                     "Arial",
-                    13
+                    11 if compact else 13
                 ),
                 anchor="center"
             )

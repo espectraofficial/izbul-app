@@ -1,4 +1,5 @@
 import queue
+import sys
 
 import customtkinter as ctk
 
@@ -8,7 +9,10 @@ from ui.favorites_mixin import FavoritesMixin
 from ui.filters_mixin import FiltersMixin
 from ui.home_mixin import HomeViewMixin
 from ui.job_details_mixin import JobDetailsMixin
-from ui.layout import calculate_window_layout
+from ui.layout import (
+    calculate_compact_scaling,
+    calculate_window_layout,
+)
 from ui.navigation_mixin import NavigationMixin
 from ui.presentation_mixin import PresentationMixin
 from ui.results_view import ResultsView
@@ -46,6 +50,14 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
             screen_height
         )
         self.compact_layout = window_layout.compact
+
+        window_scaling, widget_scaling = calculate_compact_scaling(
+            self.compact_layout,
+            sys.platform,
+            self._get_window_scaling()
+        )
+        ctk.set_window_scaling(window_scaling)
+        ctk.set_widget_scaling(widget_scaling)
 
         self.geometry(
             f"{window_layout.width}x{window_layout.height}"
@@ -397,6 +409,33 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
             side="left",
             fill="y",
             padx=(3, 7) if self.compact_layout else (5, 10)
+        )
+
+        filter_actions = ctk.CTkFrame(
+            self.sidebar,
+            fg_color="transparent"
+        )
+
+        filter_actions.pack(
+            side="bottom",
+            fill="x",
+            padx=0,
+            pady=(0, 5) if self.compact_layout else (0, 12)
+        )
+
+        self.clear_filter_button = ctk.CTkButton(
+            filter_actions,
+            text="Filtreleri Temizle",
+            height=30 if self.compact_layout else 36,
+            corner_radius=12,
+            fg_color="#444444",
+            hover_color="#555555",
+            command=self.clear_filters
+        )
+
+        self.clear_filter_button.pack(
+            padx=12 if self.compact_layout else 18,
+            fill="x"
         )
 
         # =========================
@@ -826,45 +865,6 @@ class JobApp(HomeViewMixin, SettingsMixin, SearchMixin, FiltersMixin, Presentati
         self.sort_menu.pack(
             padx=14 if self.compact_layout else 18,
             pady=(0, 4) if self.compact_layout else (0, 8)
-        )
-
-        # =========================
-        # APPLY FILTER BUTTON
-        # =========================
-
-        filter_actions = ctk.CTkFrame(
-            self.sidebar,
-            fg_color="transparent"
-        )
-
-        filter_actions.pack(
-            side="bottom",
-            fill="x",
-            padx=0,
-            pady=(0, 6) if self.compact_layout else (0, 12)
-        )
-
-        self.clear_filter_button = ctk.CTkButton(
-
-            filter_actions,
-
-            text="Filtreleri Temizle",
-
-            height=32 if self.compact_layout else 36,
-
-            corner_radius=12,
-
-            fg_color="#444444",
-
-            hover_color="#555555",
-
-            command=self.clear_filters
-        )
-
-        self.clear_filter_button.pack(
-            padx=14 if self.compact_layout else 18,
-            pady=(0, 0),
-            fill="x"
         )
 
         # =========================

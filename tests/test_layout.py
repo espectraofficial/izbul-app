@@ -1,6 +1,9 @@
 import pytest
 
-from ui.layout import calculate_window_layout
+from ui.layout import (
+    calculate_compact_scaling,
+    calculate_window_layout,
+)
 
 
 @pytest.mark.parametrize(
@@ -43,3 +46,27 @@ def test_full_hd_screen_keeps_regular_layout():
 def test_invalid_screen_dimensions_are_rejected():
     with pytest.raises(ValueError):
         calculate_window_layout(0, 720)
+
+
+def test_compact_windows_layout_compensates_for_dpi_scaling():
+    window_scaling, widget_scaling = calculate_compact_scaling(
+        True,
+        "win32",
+        1.25
+    )
+
+    assert window_scaling == pytest.approx(0.8)
+    assert widget_scaling == pytest.approx(0.84)
+
+
+def test_regular_or_non_windows_layout_keeps_default_scaling():
+    assert calculate_compact_scaling(
+        False,
+        "win32",
+        1.25
+    ) == (1.0, 1.0)
+    assert calculate_compact_scaling(
+        True,
+        "darwin",
+        2.0
+    ) == (1.0, 1.0)
