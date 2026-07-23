@@ -10,6 +10,7 @@ from ui.config import APP_VERSION, DEFAULT_SETTINGS, get_theme_label, get_theme_
 from ui.diagnostics import build_diagnostic_archive
 from ui.search_cache import clear_search_cache
 from ui.storage import get_app_data_dir, save_settings
+from ui.update_mixin import is_windows_store_install
 
 
 class SettingsMixin:
@@ -504,10 +505,16 @@ class SettingsMixin:
             padx=(8, 0)
         )
 
+        store_managed_updates = is_windows_store_install()
+
         update_label = ctk.CTkLabel(
             container,
-            text=f"Güncellemeler: mevcut sürüm {APP_VERSION}",
-            text_color="gray",
+            text=(
+                "Güncellemeler Microsoft Store tarafından yönetiliyor."
+                if store_managed_updates
+                else f"Güncellemeler: mevcut sürüm {APP_VERSION}"
+            ),
+            text_color="#27AE60" if store_managed_updates else "gray",
             font=(
                 "Arial",
                 13
@@ -526,11 +533,12 @@ class SettingsMixin:
             fg_color="transparent"
         )
 
-        update_actions.pack(
-            fill="x",
-            padx=22,
-            pady=(0, 14)
-        )
+        if not store_managed_updates:
+            update_actions.pack(
+                fill="x",
+                padx=22,
+                pady=(0, 14)
+            )
 
         download_update_button = ctk.CTkButton(
             update_actions,
@@ -542,6 +550,15 @@ class SettingsMixin:
         )
 
         def refresh_update_buttons():
+
+            if store_managed_updates:
+
+                update_label.configure(
+                    text="Güncellemeler Microsoft Store tarafından yönetiliyor.",
+                    text_color="#27AE60"
+                )
+
+                return
 
             if self.latest_release_info:
 
@@ -598,12 +615,13 @@ class SettingsMixin:
             command=check_updates_from_settings
         )
 
-        check_update_button.pack(
-            side="left",
-            fill="x",
-            expand=True,
-            padx=(0, 8)
-        )
+        if not store_managed_updates:
+            check_update_button.pack(
+                side="left",
+                fill="x",
+                expand=True,
+                padx=(0, 8)
+            )
 
         refresh_update_buttons()
 

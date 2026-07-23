@@ -63,7 +63,7 @@ You can provide the API key with an environment variable:
 
 ```bash
 export JOOBLE_API_KEY=your_api_key
-python ui/app.py
+python -m ui.app
 ```
 
 Or create a local `jooble_api_key.txt` file in the project root and put only the API key inside it.
@@ -77,7 +77,7 @@ export JOOBLE_API_HOST=jooble.org
 ## Run
 
 ```bash
-python ui/app.py
+python -m ui.app
 ```
 
 ## Tests
@@ -147,6 +147,7 @@ Distribution outputs:
 - macOS in-app update: `release/macos/Izbul-macOS.zip`
 - macOS update signature: `release/macos/Izbul-macOS.zip.sig`
 - Windows: `release/windows/Izbul-Windows-Setup.exe`
+- Microsoft Store: `release/windows/Izbul-Windows-Store.msix`
 - SHA-256 checksums: installer adının sonuna `.sha256` eklenmiş dosya
 
 GitHub Actions can build both installers from the **Build Installers** workflow.
@@ -176,6 +177,9 @@ approval; later in-app updates do not require opening or dragging a new DMG.
 
 Windows continues to download and open its verified installer. The update
 window displays the release notes published on GitHub on both platforms.
+Microsoft Store installations use Store-managed updates instead of downloading
+the GitHub installer. The Store package identity is `Espectra.zbul` and its
+publisher display name is `Espectra`.
 
 ```md
 © 2026 Ümit Ege Güldez. Tüm hakları saklıdır. İzbul kaynak kodu, uygulama adı, tasarımı ve dağıtım paketleri izinsiz kopyalanamaz, değiştirilemez, yeniden dağıtılamaz veya sahiplenilemez.

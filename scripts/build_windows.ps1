@@ -37,6 +37,52 @@ pyinstaller `
 
 New-Item -ItemType Directory -Force -Path release\windows | Out-Null
 
+$MsixStage = "$PWD\build\msix"
+$MsixAssets = "$MsixStage\Assets"
+$MsixPayload = "$MsixStage\$AppName"
+$MsixVersion = "$AppVersion.0"
+$ManifestTemplate = "$PWD\packaging\windows\AppxManifest.xml.template"
+$ManifestPath = "$MsixStage\AppxManifest.xml"
+
+New-Item -ItemType Directory -Force -Path $MsixAssets | Out-Null
+New-Item -ItemType Directory -Force -Path $MsixPayload | Out-Null
+Copy-Item "dist\$AppName\*" -Destination $MsixPayload -Recurse -Force
+
+& .\venv\Scripts\python.exe scripts\generate_msix_assets.py icon.png $MsixAssets
+
+$Manifest = (Get-Content $ManifestTemplate -Raw).Replace(
+  "__MSIX_VERSION__",
+  $MsixVersion
+)
+$Manifest | Set-Content -Path $ManifestPath -Encoding utf8
+
+$MakeAppx = Get-Command MakeAppx.exe -ErrorAction SilentlyContinue
+
+if (-not $MakeAppx) {
+  $MakeAppx = Get-ChildItem `
+    "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\MakeAppx.exe" `
+    -ErrorAction SilentlyContinue |
+    Sort-Object FullName -Descending |
+    Select-Object -First 1
+}
+
+if (-not $MakeAppx) {
+  throw "MakeAppx.exe was not found. Install the Windows 10/11 SDK."
+}
+
+$MakeAppxPath = if ($MakeAppx.Source) {
+  $MakeAppx.Source
+} else {
+  $MakeAppx.FullName
+}
+
+& $MakeAppxPath pack `
+  /o `
+  /d $MsixStage `
+  /p "release\windows\Izbul-Windows-Store.msix"
+
+Write-Host "Created release\windows\Izbul-Windows-Store.msix"
+
 $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 
 if ($iscc) {
@@ -48,7 +94,7 @@ if ($iscc) {
 }
 
 Get-ChildItem release\windows -File |
-  Where-Object { $_.Extension -in ".exe", ".zip" } |
+  Where-Object { $_.Extension -in ".exe", ".zip", ".msix" } |
   ForEach-Object {
     $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     "$hash  $($_.Name)" |

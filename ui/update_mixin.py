@@ -1,3 +1,4 @@
+import ctypes
 import hashlib
 import logging
 import os
@@ -24,6 +25,29 @@ if sys.platform == "darwin":
 
 
 logger = logging.getLogger(__name__)
+
+
+ERROR_INSUFFICIENT_BUFFER = 122
+
+
+def is_windows_store_install(platform_name=None, package_probe=None):
+    platform_name = platform_name or sys.platform
+
+    if platform_name != "win32":
+        return False
+
+    try:
+        if package_probe is None:
+            package_probe = ctypes.windll.kernel32.GetCurrentPackageFullName
+
+        package_name_length = ctypes.c_uint32(0)
+        result = package_probe(
+            ctypes.byref(package_name_length),
+            None
+        )
+        return result == ERROR_INSUFFICIENT_BUFFER
+    except (AttributeError, OSError):
+        return False
 
 
 def parse_sha256_checksum(checksum_text, asset_name):
@@ -798,6 +822,19 @@ class UpdateMixin:
             )
 
     def check_for_updates(self, silent=False):
+
+        if is_windows_store_install():
+
+            self.latest_release_info = None
+            self.update_check_in_progress = False
+
+            if not silent:
+                self.show_toast(
+                    "Güncellemeler Microsoft Store tarafından yönetiliyor.",
+                    "#27AE60"
+                )
+
+            return False
 
         if self.update_check_in_progress:
 

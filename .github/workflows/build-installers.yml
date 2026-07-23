@@ -87,7 +87,7 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
-      - name: Build Windows installer
+      - name: Build Windows installers
         shell: pwsh
         run: .\scripts\build_windows.ps1
 

@@ -9,6 +9,7 @@ from ui import update_mixin
 from ui.update_mixin import (
     UpdateMixin,
     download_verified_file,
+    is_windows_store_install,
     parse_sha256_checksum,
 )
 from ui.macos_updater import find_running_app_bundle, verify_update_signature
@@ -37,6 +38,45 @@ class FakeResponse:
 
     def __exit__(self, exc_type, exc_value, traceback):
         return False
+
+
+def test_windows_store_install_is_detected_from_package_identity():
+    assert is_windows_store_install(
+        platform_name="win32",
+        package_probe=lambda _length, _buffer: 122,
+    )
+
+
+def test_unpacked_or_non_windows_install_is_not_store_managed():
+    assert not is_windows_store_install(
+        platform_name="win32",
+        package_probe=lambda _length, _buffer: 15700,
+    )
+    assert not is_windows_store_install(
+        platform_name="darwin",
+        package_probe=lambda _length, _buffer: 122,
+    )
+
+
+def test_store_install_skips_github_update_check(monkeypatch):
+    class DummyUpdater(UpdateMixin):
+        update_check_in_progress = False
+        latest_release_info = {"version": "9.9.9"}
+
+        def show_toast(self, message, color):
+            self.toast = (message, color)
+
+    monkeypatch.setattr(
+        update_mixin,
+        "is_windows_store_install",
+        lambda: True,
+    )
+    updater = DummyUpdater()
+
+    assert updater.check_for_updates(silent=False) is False
+    assert updater.latest_release_info is None
+    assert updater.update_check_in_progress is False
+    assert "Microsoft Store" in updater.toast[0]
 
 
 def test_parse_sha256_checksum_selects_matching_asset():
