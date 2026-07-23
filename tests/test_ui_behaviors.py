@@ -280,7 +280,7 @@ def test_opening_favorites_resets_filters_and_shows_every_favorite():
     assert app.navigation_history == ["results"]
     assert app.view_mode == "favorites"
     assert app.keyword_entry.get() == ""
-    assert app.city_entry.get() == ""
+    assert app.city_entry.get() == "Ankara"
     assert app.application_status_filter_var.get() == "Tümü"
     assert len(app.filtered_jobs) == 2
     assert app.current_page == 1

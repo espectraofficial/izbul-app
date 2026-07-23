@@ -1,3 +1,4 @@
+import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -54,6 +55,16 @@ class ResultsView(tk.Frame):
         self.palette = {}
         self.jobs_by_item = {}
         self.image_references = []
+
+        # Windows'un yerel ttk teması Treeview satırlarının altında kalan
+        # fieldbackground rengini yok sayabiliyor. Clam, özel paleti tutarlı
+        # biçimde uygular ve boş alanın beyaz görünmesini engeller.
+        style = ttk.Style(self)
+        if (
+            sys.platform == "win32" and
+            "clam" in style.theme_names()
+        ):
+            style.theme_use("clam")
 
         self.header = ctk.CTkFrame(
             self,

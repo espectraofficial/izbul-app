@@ -70,11 +70,6 @@ class FiltersMixin:
             "end"
         )
 
-        self.city_entry.delete(
-            0,
-            "end"
-        )
-
         for var in self.exp_vars.values():
 
             var.set(False)
@@ -245,8 +240,12 @@ class FiltersMixin:
 
                 filtered = status_filtered
 
-        city = normalize_text(
-            self.city_entry.get()
+        city = (
+            ""
+            if self.view_mode == "favorites"
+            else normalize_text(
+                self.city_entry.get()
+            )
         )
 
         if city:
