@@ -31,6 +31,8 @@ Bu reponun public olarak görüntülenebilmesi kaynak kodun, tasarımın, uygula
 All rights reserved. No part of this project may be copied, modified, redistributed, sold, sublicensed, or claimed as another person's or organization's work without prior written permission from Ümit Ege Güldez.
 
 See [NOTICE.md](NOTICE.md) for third-party source, trademark, and dependency notices.
+See [PRIVACY.md](PRIVACY.md) for information about local data storage,
+third-party requests, and user privacy.
 
 ## Current Sources
 
